@@ -196,8 +196,10 @@ const CYCLE = {
   4: { name: 'DELOAD',          accent: 'lime', pct: [60, 60, 60],              reps: 5, rest: 180, tag: '3×5 @ 60%',    rpe: 'RPE 4-5 — Récupération active. Vitesse et propreté.' },
 };
 
-// Temps de repos par catégorie
+// Temps de repos par catégorie. Un exercice peut définir `rest` pour surcharger
+// cette valeur par défaut (les exercices sans `rest` sont inchangés).
 const REST = { force: null /* dépend de la semaine */, compound: 180, isolation: 90, sprint: 180, finisher: 0, cardio: 0 };
+const restOf = (ex) => (ex.rest != null ? ex.rest : (REST[ex.kind] != null ? REST[ex.kind] : 90));
 
 const ACC = {
   pink: { text: 'text-neon',  ring: 'edge-pink', grad: 'grad-pink', glow: 'text-glow-pink', hex: '#FF007F', soft: 'rgba(255,0,127,.14)' },
@@ -218,6 +220,9 @@ const PROGRAM = {
       { kind: 'compound',  name: 'Presse à cuisses',   sets: 3, reps: '6-10', note: 'Amplitude complète, pas de rebond en bas.' },
       { kind: 'isolation', name: 'Leg Extension',      sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
       { kind: 'isolation', name: 'Leg Curl allongé',   sets: 3, reps: '6-10', note: 'Excentrique contrôlé 3s.' },
+      { kind: 'isolation', name: 'Pecs Deck Inversé',  sets: 5, reps: '12-15', rest: 60,  note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
+      { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
+      { kind: 'isolation', name: 'Crunch à la Poulie', sets: 3, reps: '12-15', rest: 45,  note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
     ],
   },
   2: {
@@ -252,6 +257,8 @@ const PROGRAM = {
       { kind: 'compound',  name: 'Tirage Vertical Machine',     sets: 3, reps: '6-10', note: 'Amène la barre à la clavicule, poitrine sortie.' },
       { kind: 'compound',  name: 'Tirage Horizontal (Rowing)',  sets: 3, reps: '6-10', note: 'Serre les omoplates 1s.' },
       { kind: 'isolation', name: 'Curl Biceps Poulie',          sets: 3, reps: '6-10', note: 'Coudes fixes, zéro élan de hanches.' },
+      { kind: 'isolation', name: 'Curl Marteau',                sets: 4, reps: '10-12', rest: 90, note: 'Prise neutre, poignets verrouillés. Cible le brachial et le long supinateur.' },
+      { kind: 'isolation', name: 'Oiseau Poulie',               sets: 5, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
     ],
   },
   6: {
@@ -264,6 +271,9 @@ const PROGRAM = {
       { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
       { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', note: 'Charge modérée, focus sur le stretch.' },
       { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '6-10', note: 'Pause 2s en bas, explosion en haut.' },
+      { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
+      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
+      { kind: 'isolation', name: 'Crunch à la Poulie',           sets: 3, reps: '12-15', rest: 45, note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
     ],
   },
   0: { off: true, day: 'DIMANCHE', accent: 'pink', title: 'REPOS OBLIGATOIRE', focus: 'Récupération totale · Prépare ta semaine' },
@@ -557,7 +567,16 @@ const DEFAULT_STATE = {
   settings: { sound: true, vibration: true, autoTimer: true },
   logs: {},   // { 'YYYY-MM-DD': { '0|2': true, ... } }
   prs: [],    // [{ id, lift, weight, reps, e1rm, prev, date, kind }]
+  restOverrides: {},  // { "Nom de l'exercice": secondes }
+  nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
 };
+
+/* ---------- Repos effectif : surcharge utilisateur > `rest` de l'exercice > défaut ---------- */
+function restFor(ex, overrides, forceDefault) {
+  const o = overrides && overrides[ex.name];
+  if (o != null) return o;
+  return forceDefault != null ? forceDefault : restOf(ex);
+}
 
 function loadState() {
   try {
@@ -571,6 +590,8 @@ function loadState() {
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
       logs: parsed.logs || {},
       prs: Array.isArray(parsed.prs) ? parsed.prs : [],
+      restOverrides: parsed.restOverrides || {},
+      nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
     return { ...DEFAULT_STATE };
@@ -1030,8 +1051,9 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR, delay }) {
+function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
+  const [editRest, setEditRest] = useState(false);
   const week = state.week;
   const cyc = CYCLE[week];
   const isForce = ex.kind === 'force';
@@ -1050,7 +1072,9 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
     return Array.from({ length: n }, () => ({ weight: null, reps: ex.reps, pct: null }));
   }, [isForce, oneRM, week, ex]);
 
-  const restSec = isForce ? cyc.rest : (REST[ex.kind] ?? 90);
+  const defaultRest = isForce ? cyc.rest : restOf(ex);
+  const restSec = restFor(ex, state.restOverrides, defaultRest);
+  const isCustomRest = restSec !== defaultRest;
   const logs = state.logs[dayKey] || {};
   const doneCount = sets.filter((_, i) => logs[`${exIdx}|${i}`]).length;
   const complete = sets.length > 0 && doneCount === sets.length;
@@ -1090,9 +1114,62 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-white/50">
           {isForce && oneRM > 0 && <span>1RM <b className={a.text}>{fmtKg(oneRM)} kg</b></span>}
           {isForce && <span className="text-white/20">|</span>}
-          {restSec > 0 && <span>⏱ Repos <b className="text-white/80">{restLabel}</b></span>}
+          {restSec > 0 && (
+            <button
+              onClick={() => setEditRest((v) => !v)}
+              className={`press rounded-lg border px-2 py-1 text-[11px] font-bold transition-colors ${
+                isCustomRest ? 'border-lime2/40 bg-lime2/[.08] text-lime2' : 'border-white/12 bg-white/[.04] text-white/55'
+              }`}
+            >
+              ⏱ Repos <b className={isCustomRest ? 'text-lime2' : 'text-white/85'}>{restLabel}</b>
+              <span className="ml-1 text-white/30">✎</span>
+            </button>
+          )}
           {isForce && <><span className="text-white/20">|</span><span className="text-white/40">{cyc.tag}</span></>}
         </div>
+
+        {/* Réglage du temps de repos — mémorisé pour les séances suivantes */}
+        {editRest && restSec > 0 && (
+          <div className="mt-2 rounded-2xl border border-white/12 bg-white/[.04] p-3">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-white/45">
+              Temps de repos — {ex.name}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[30, 45, 60, 90, 120, 180, 240, 300].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setRestOverride(ex.name, s)}
+                  className={`press flex-1 rounded-lg border px-2 py-2 font-display text-[11px] transition-all ${
+                    restSec === s ? `${a.grad} border-transparent text-ink` : 'border-white/12 bg-white/[.04] text-white/55'
+                  }`}
+                  style={{ minWidth: '58px' }}
+                >
+                  {fmtRest(s)}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                onClick={() => setRestOverride(ex.name, Math.max(15, restSec - 15))}
+                className="press flex-1 rounded-lg border border-white/12 bg-white/[.04] py-2 text-[11px] font-black text-white/60"
+              >−15s</button>
+              <button
+                onClick={() => setRestOverride(ex.name, Math.min(900, restSec + 15))}
+                className="press flex-1 rounded-lg border border-white/12 bg-white/[.04] py-2 text-[11px] font-black text-white/60"
+              >+15s</button>
+              <button
+                onClick={() => setRestOverride(ex.name, null)}
+                disabled={!isCustomRest}
+                className="press flex-1 rounded-lg border border-white/12 bg-white/[.04] py-2 text-[11px] font-black text-white/60 disabled:opacity-30"
+              >↺ Défaut</button>
+            </div>
+            <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/35">
+              {isCustomRest
+                ? `Réglage personnalisé, conservé pour toutes tes prochaines séances (défaut : ${fmtRest(defaultRest)}).`
+                : 'Ton choix est mémorisé et réappliqué automatiquement aux séances suivantes.'}
+            </p>
+          </div>
+        )}
 
         {isForce && <p className="mt-2 text-[11px] font-semibold italic text-white/40">{cyc.rpe}</p>}
         {ex.note && <p className="mt-2 rounded-xl border border-white/[.07] bg-white/[.03] p-2.5 text-[11px] font-medium leading-relaxed text-white/55">💡 {ex.note}</p>}
@@ -1186,7 +1263,7 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, startTimer, openPR, goProfile }) {
+function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOverride, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const stripRef = useRef(null);
@@ -1334,6 +1411,7 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, goProfile }
               toggleSet={toggleSet}
               startTimer={startTimer}
               openPR={openPR}
+              setRestOverride={setRestOverride}
               delay={i * 55}
             />
           ))}
@@ -1423,7 +1501,7 @@ function ProgramView({ state }) {
                   const isForce = ex.kind === 'force';
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
-                  const restSec = isForce ? cyc.rest : (REST[ex.kind] ?? 90);
+                  const restSec = restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
                   return (
                     <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.025] p-3">
                       <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? acc2.grad : 'bg-white/15'}`} />
@@ -1975,13 +2053,262 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
 }
 
 /* ============================================================
+   11 bis. CALCUL MÉTABOLIQUE (Mifflin-St Jeor 1990)
+   ============================================================ */
+
+const ACTIVITY = [
+  { f: 1.2,   label: 'Sédentaire',        desc: 'Peu ou pas d\'exercice' },
+  { f: 1.375, label: 'Légèrement actif',  desc: 'Exercice léger 1-3 j/semaine' },
+  { f: 1.55,  label: 'Modérément actif',  desc: 'Exercice modéré 3-5 j/semaine' },
+  { f: 1.725, label: 'Très actif',        desc: 'Exercice intense 6-7 j/semaine' },
+  { f: 1.9,   label: 'Extrêmement actif', desc: 'Exercice très intense + travail physique' },
+];
+
+const GOALS = [
+  { id: 'seche',    label: 'Sèche',          accent: 'cyan', mult: 0.85, range: [0.80, 0.85], tag: '−15 %', note: 'Déficit modéré (−15 à −20 %)' },
+  { id: 'maintien', label: 'Maintien',       accent: 'viol', mult: 1.00, range: [1.00, 1.00], tag: '=',     note: 'Aucun ajustement' },
+  { id: 'masse',    label: 'Prise de masse', accent: 'pink', mult: 1.10, range: [1.10, 1.15], tag: '+10 %', note: 'Surplus modéré (+10 à +15 %)' },
+];
+
+// Défini hors du composant : une définition interne serait recréée à chaque
+// rendu, React démonterait l'input et le champ perdrait le focus à chaque frappe.
+function NumField({ label, value, unit, placeholder, step, onChange }) {
+  return (
+    <div>
+      <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-white/40">{label}</label>
+      <div className="relative">
+        <input
+          type="number" inputMode="decimal" step={step || '1'}
+          value={value || ''}
+          onChange={(e) => onChange(Math.max(0, parseFloat(e.target.value) || 0))}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-white/12 bg-white/[.05] px-3 py-3 pr-9 text-center font-display text-xl text-white outline-none focus:border-lime2/60"
+        />
+        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-white/30">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+function NutritionView({ state, setState }) {
+  const n = state.nutrition;
+  const set = (k, v) => setState((s) => ({ ...s, nutrition: { ...s.nutrition, [k]: v } }));
+
+  const w = Number(n.weight) || 0;
+  const h = Number(n.height) || 0;
+  const age = Number(n.age) || 0;
+  const complete = w > 0 && h > 0 && age > 0;
+
+  // Mifflin-St Jeor (1990)
+  const bmr = complete
+    ? Math.round(10 * w + 6.25 * h - 5 * age + (n.sex === 'h' ? 5 : -161))
+    : 0;
+  const tdee = bmr ? Math.round(bmr * n.activity) : 0;
+  const goal = GOALS.find((g) => g.id === n.goal) || GOALS[1];
+  const kcal = tdee ? Math.round(tdee * goal.mult) : 0;
+  const lo = tdee ? Math.round(tdee * Math.min(goal.range[0], goal.range[1])) : 0;
+  const hi = tdee ? Math.round(tdee * Math.max(goal.range[0], goal.range[1])) : 0;
+
+  // Macros — protéines prioritaires quel que soit l'objectif
+  const protG = w ? Math.round(w * 2.0) : 0;
+  const protMin = w ? Math.round(w * 1.8) : 0;
+  const protMax = w ? Math.round(w * 2.2) : 0;
+  const protKcal = protG * 4;
+  const fatKcal = kcal ? Math.round(kcal * 0.25) : 0;
+  const fatG = Math.round(fatKcal / 9);
+  const carbKcal = Math.max(0, kcal - protKcal - fatKcal);
+  const carbG = Math.round(carbKcal / 4);
+  const macroImpossible = kcal > 0 && protKcal + fatKcal > kcal;
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle sub="Estimation de tes besoins caloriques quotidiens.">
+        Calcul Métabolique
+      </SectionTitle>
+
+      {/* 1 — Données personnelles */}
+      <Card accent="lime" glow={complete} className="rise p-4">
+        <p className="mb-3 font-display text-sm uppercase text-white">1 · Tes données</p>
+
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          <NumField label="Poids"  value={n.weight} unit="KG"  placeholder="80"  step="0.1" onChange={(v) => set('weight', v)} />
+          <NumField label="Taille" value={n.height} unit="CM"  placeholder="178"            onChange={(v) => set('height', v)} />
+          <NumField label="Âge"    value={n.age}    unit="ANS" placeholder="25"             onChange={(v) => set('age', v)} />
+        </div>
+
+        <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-white/40">Sexe</label>
+        <div className="flex gap-2">
+          {[['h', 'Homme'], ['f', 'Femme']].map(([v, lbl]) => (
+            <button
+              key={v}
+              onClick={() => set('sex', v)}
+              className={`press flex-1 rounded-xl border py-3 font-display text-xs uppercase tracking-wider transition-all ${
+                n.sex === v ? 'grad-lime border-transparent text-ink' : 'border-white/12 bg-white/[.04] text-white/50'
+              }`}
+            >{lbl}</button>
+          ))}
+        </div>
+
+        {complete && (
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/[.04] p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wider text-white/40">Métabolisme de base (BMR)</p>
+            <p className="font-display text-2xl text-white/90">{bmr.toLocaleString('fr-FR')} <span className="text-xs text-white/40">KCAL/JOUR</span></p>
+          </div>
+        )}
+      </Card>
+
+      {/* 2 — Niveau d'activité */}
+      <Card accent="cyan" className="rise p-4">
+        <p className="mb-3 font-display text-sm uppercase text-white">2 · Niveau d'activité</p>
+        <div className="space-y-1.5">
+          {ACTIVITY.map((act) => {
+            const active = Math.abs(n.activity - act.f) < 0.001;
+            return (
+              <button
+                key={act.f}
+                onClick={() => set('activity', act.f)}
+                className={`press flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
+                  active ? 'border-cyan2/50 bg-cyan2/[.09]' : 'border-white/10 bg-white/[.03]'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[13px] font-extrabold ${active ? 'text-cyan2' : 'text-white/75'}`}>{act.label}</p>
+                  <p className="text-[10px] font-semibold text-white/35">{act.desc}</p>
+                </div>
+                <span className={`shrink-0 font-display text-sm ${active ? 'text-cyan2' : 'text-white/30'}`}>×{act.f}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {complete && (
+          <div className="mt-3 rounded-2xl border border-cyan2/30 bg-cyan2/[.07] p-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wider text-white/40">TDEE — dépense totale</p>
+            <p className="font-display text-2xl text-cyan2">{tdee.toLocaleString('fr-FR')} <span className="text-xs text-white/40">KCAL/JOUR</span></p>
+            <p className="mt-0.5 text-[10px] font-bold text-white/35">{bmr.toLocaleString('fr-FR')} × {n.activity}</p>
+          </div>
+        )}
+      </Card>
+
+      {/* 3 — Objectif */}
+      <Card accent="viol" className="rise p-4">
+        <p className="mb-3 font-display text-sm uppercase text-white">3 · Ton objectif</p>
+        <div className="grid grid-cols-3 gap-2">
+          {GOALS.map((g) => {
+            const active = n.goal === g.id;
+            const acc = ACC[g.accent];
+            return (
+              <button
+                key={g.id}
+                onClick={() => set('goal', g.id)}
+                className={`press rounded-2xl border p-3 text-center transition-all ${
+                  active ? 'border-white/25 bg-white/[.09]' : 'border-white/[.08] bg-white/[.025]'
+                }`}
+                style={active ? { boxShadow: `0 0 0 1px ${acc.hex}55, 0 0 24px -8px ${acc.hex}` } : undefined}
+              >
+                <p className={`font-display text-[11px] uppercase leading-tight ${active ? acc.text : 'text-white/40'}`}>{g.label}</p>
+                <p className={`mt-1 font-display text-sm ${active ? acc.text : 'text-white/25'}`}>{g.tag}</p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-center text-[10px] font-semibold text-white/35">{goal.note}</p>
+      </Card>
+
+      {/* 4 — Résultat */}
+      {complete ? (
+        <Card accent="lime" glow className="rise p-5 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-white/40">Calories recommandées</p>
+          <p className="font-display text-6xl leading-none clip-text grad-lime">{kcal.toLocaleString('fr-FR')}</p>
+          <p className="mt-1 font-display text-sm text-white/50">KCAL / JOUR</p>
+
+          {goal.id !== 'maintien' && (
+            <p className="mt-2 text-[11px] font-bold text-white/40">
+              Fourchette conseillée : <b className="text-white/70">{Math.min(lo, hi).toLocaleString('fr-FR')} – {Math.max(lo, hi).toLocaleString('fr-FR')}</b> kcal
+            </p>
+          )}
+
+          <p className="mt-4 border-t border-white/10 pt-3 text-[10px] font-semibold leading-relaxed text-white/35">
+            Calcul basé sur la formule de Mifflin-St Jeor (1990), reconnue comme la référence la plus précise
+            pour l'estimation du métabolisme de base.
+          </p>
+        </Card>
+      ) : (
+        <Card accent="viol" className="rise p-6 text-center">
+          <div className="text-4xl">📊</div>
+          <p className="mt-2 font-display text-base text-white/70">Renseigne poids, taille et âge</p>
+          <p className="mt-1 text-[11px] font-semibold text-white/40">Le calcul se met à jour automatiquement.</p>
+        </Card>
+      )}
+
+      {/* Macros */}
+      {complete && kcal > 0 && (
+        <>
+          <SectionTitle sub={`Protéines prioritaires : ${protMin}-${protMax} g/jour (1,8-2,2 g/kg), quel que soit l'objectif.`}>
+            Répartition des macros
+          </SectionTitle>
+
+          {macroImpossible ? (
+            <Card accent="pink" className="rise p-4">
+              <p className="text-[11px] font-bold leading-relaxed text-neon">
+                ⚠️ À {kcal.toLocaleString('fr-FR')} kcal, les protéines ({protG} g) et les lipides ({fatG} g) dépassent déjà
+                le total. Ce déficit est trop agressif pour ton poids de corps — remonte les calories ou change d'objectif.
+              </p>
+            </Card>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Protéines', g: protG, kcal: protKcal, accent: 'pink', icon: '🥩' },
+                  { label: 'Glucides',  g: carbG, kcal: carbKcal, accent: 'cyan', icon: '🍚' },
+                  { label: 'Lipides',   g: fatG,  kcal: fatKcal,  accent: 'viol', icon: '🥑' },
+                ].map((m) => {
+                  const acc = ACC[m.accent];
+                  const pct = Math.round((m.kcal / kcal) * 100);
+                  return (
+                    <Card key={m.label} accent={m.accent} glow className="p-3 text-center">
+                      <div className="text-xl">{m.icon}</div>
+                      <p className={`mt-1 font-display text-2xl leading-none ${acc.text}`}>{m.g}</p>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-white/35">grammes</p>
+                      <p className="mt-1.5 text-[10px] font-black uppercase tracking-wide text-white/55">{m.label}</p>
+                      <p className="text-[9px] font-bold text-white/30">{m.kcal.toLocaleString('fr-FR')} kcal · {pct} %</p>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <Card accent="lime" className="rise p-4">
+                <p className="text-[11px] font-semibold leading-relaxed text-white/50">
+                  <b className="text-lime2">Méthode :</b> protéines fixées à 2 g/kg de poids de corps pour préserver la masse
+                  musculaire, lipides à 25 % des calories pour l'équilibre hormonal, glucides sur le reste — ce sont eux
+                  qui alimentent tes séries lourdes de SBD.
+                </p>
+              </Card>
+            </>
+          )}
+
+          <Card accent="viol" className="rise p-4">
+            <p className="text-[11px] font-semibold leading-relaxed text-white/45">
+              💡 Ces valeurs sont une <b className="text-white/70">estimation de départ</b>, pas une vérité absolue.
+              Pèse-toi 3 fois par semaine à jeun et ajuste de 100 à 200 kcal après 2 semaines si le poids ne bouge pas
+              dans le sens voulu. En cas de pathologie ou de régime encadré, demande l'avis d'un professionnel de santé.
+            </p>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
    12. NAVIGATION
    ============================================================ */
 
 const TABS = [
-  { id: 'today',   label: 'Séance',    icon: '🔥', accent: 'pink' },
-  { id: 'program', label: 'Programme', icon: '📅', accent: 'cyan' },
-  { id: 'profile', label: 'Profil',    icon: '⚙️', accent: 'viol' },
+  { id: 'today',     label: 'Séance',    icon: '🔥', accent: 'pink' },
+  { id: 'program',   label: 'Programme', icon: '📅', accent: 'cyan' },
+  { id: 'nutrition', label: 'Calories',  icon: '🍽️', accent: 'lime' },
+  { id: 'profile',   label: 'Profil',    icon: '⚙️', accent: 'viol' },
 ];
 
 function TabBar({ tab, setTab }) {
@@ -2137,6 +2464,16 @@ function App() {
     });
   }, []);
 
+  // Temps de repos personnalisé, mémorisé par nom d'exercice (null = retour au défaut)
+  const setRestOverride = useCallback((name, seconds) => {
+    setState((s) => {
+      const next = { ...(s.restOverrides || {}) };
+      if (seconds == null) delete next[name];
+      else next[name] = seconds;
+      return { ...s, restOverrides: next };
+    });
+  }, []);
+
   const startTimer = useCallback((seconds, label, accent) => {
     if (!settingsRef.current.autoTimer) return;
     timerIdRef.current += 1;
@@ -2162,10 +2499,12 @@ function App() {
           toggleSet={toggleSet}
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
+          setRestOverride={setRestOverride}
           goProfile={() => { setTab('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
       {tab === 'program' && <ProgramView state={state} />}
+      {tab === 'nutrition' && <NutritionView state={state} setState={setState} />}
       {tab === 'profile' && (
         <ProfileView
           state={state}
