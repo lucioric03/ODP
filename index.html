@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-<title>IRON CYCLE — Hybrid SBD Program</title>
+<title>ODP — Programme Force & Hypertrophie</title>
 
 <!-- PWA / iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Iron Cycle" />
+<meta name="apple-mobile-web-app-title" content="ODP" />
 <meta name="theme-color" content="#0B1020" />
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -179,6 +179,8 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
    1. CONSTANTES MÉTIER
    ============================================================ */
 
+// Clés de stockage volontairement inchangées malgré le renommage en ODP :
+// les renommer effacerait 1RM, records, réglages et nutrition déjà enregistrés.
 const STORE_KEY = 'ironcycle.v1';
 
 const LIFTS = [
@@ -220,8 +222,6 @@ const PROGRAM = {
       { kind: 'compound',  name: 'Presse à cuisses',   sets: 3, reps: '6-10', note: 'Amplitude complète, pas de rebond en bas.' },
       { kind: 'isolation', name: 'Leg Extension',      sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
       { kind: 'isolation', name: 'Leg Curl allongé',   sets: 3, reps: '6-10', note: 'Excentrique contrôlé 3s.' },
-      { kind: 'isolation', name: 'Pecs Deck Inversé',  sets: 5, reps: '12-15', rest: 60,  note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
-      { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
       { kind: 'isolation', name: 'Crunch à la Poulie', sets: 3, reps: '12-15', rest: 45,  note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
     ],
   },
@@ -233,7 +233,9 @@ const PROGRAM = {
       { kind: 'force', lift: 'bench', name: 'Développé Couché', note: 'Pause 1s sur la poitrine en semaine 3.' },
       { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', note: 'Étirement complet, coudes à 45°.' },
       { kind: 'isolation', name: 'Écartés Poulie',         sets: 3, reps: '6-10', note: 'Arc de cercle, léger fléchissement des coudes.' },
+      { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
       { kind: 'isolation', name: 'Extension Triceps Poulie', sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
+      { kind: 'isolation', name: 'Pecs Deck Inversé',      sets: 5, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
       { kind: 'finisher',  name: 'Corde à sauter — HIIT',  sets: 1, reps: '10-15 min', note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
     ],
   },
@@ -266,13 +268,13 @@ const PROGRAM = {
     title: 'Force OHP + Épaules & Rappel',
     focus: 'Deltoïdes · Rappel ischios/mollets',
     exercises: [
-      { kind: 'force', lift: 'ohp', name: 'Overhead Press', note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
-      { kind: 'isolation', name: 'Élévations Latérales Machine', sets: 3, reps: '6-10', note: 'Monte jusqu\'à l\'horizontale, descente 3s.' },
+      { kind: 'force', lift: 'ohp', name: 'Overhead Press', forceSets: 3, note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
       { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
-      { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', note: 'Charge modérée, focus sur le stretch.' },
-      { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '6-10', note: 'Pause 2s en bas, explosion en haut.' },
-      { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
-      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
+      { kind: 'isolation', name: 'Élévations Latérales Machine', sets: 3, reps: '6-10', note: 'Monte jusqu\'à l\'horizontale, descente 3s.' },
+      { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Mollets debout', note: 'Charge modérée, focus sur le stretch.' },
+      { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '6-10', ss: 'A', note: 'Pause 2s en bas, explosion en haut. Repos après la paire complète.' },
+      { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, ss: 'B', ssWith: 'Dips', note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
+      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, ss: 'B', note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
       { kind: 'isolation', name: 'Crunch à la Poulie',           sets: 3, reps: '12-15', rest: 45, note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
     ],
   },
@@ -280,6 +282,54 @@ const PROGRAM = {
 };
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/* ---------- Catalogue : tous les exercices du programme, indexés par nom.
+     Sert de réservoir pour remplacer/ajouter un exercice dans une séance. ---------- */
+const CATALOG = (() => {
+  const m = new Map();
+  WEEK_ORDER.forEach((d) => {
+    const p = PROGRAM[d];
+    if (!p || p.off || !p.exercises) return;
+    p.exercises.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
+  });
+  return m;
+})();
+
+const CATALOG_LIST = Array.from(CATALOG.values());
+
+/* ---------- Séance effective d'un jour : plan personnalisé s'il existe,
+     sinon le programme d'origine. ---------- */
+function exercisesFor(dow, state) {
+  const p = PROGRAM[dow];
+  if (!p || p.off || !p.exercises) return [];
+  const plan = state.dayPlans && state.dayPlans[dow];
+  if (!plan || !plan.length) return p.exercises;
+  const out = [];
+  plan.forEach((name) => { const ex = CATALOG.get(name); if (ex) out.push(ex); });
+  return out.length ? out : p.exercises;
+}
+
+/* ---------- Dernière performance connue par exercice (toutes dates antérieures).
+     Sert de repère à battre : « la dernière fois, 40 kg × 10 ». ---------- */
+function buildLastPerf(perfLog, beforeKey) {
+  const out = {};
+  Object.keys(perfLog || {})
+    .filter((d) => d < beforeKey)
+    .sort()                                   // croissant → la plus récente écrase
+    .forEach((d) => {
+      Object.keys(perfLog[d]).forEach((name) => {
+        const sets = perfLog[d][name];
+        if (sets && sets.some((s) => s && (s.w || s.r))) out[name] = { date: d, sets };
+      });
+    });
+  return out;
+}
+
+// Nom du partenaire de superset : l'exercice suivant du même groupe, s'il existe
+function ssPartnerAt(list, i) {
+  const ex = list[i], next = list[i + 1];
+  return ex && ex.ss && next && next.ss === ex.ss ? next.name : null;
+}
 
 /* ============================================================
    2. HELPERS
@@ -568,8 +618,17 @@ const DEFAULT_STATE = {
   logs: {},   // { 'YYYY-MM-DD': { '0|2': true, ... } }
   prs: [],    // [{ id, lift, weight, reps, e1rm, prev, date, kind }]
   restOverrides: {},  // { "Nom de l'exercice": secondes }
+  dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
+  perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
 };
+
+/* ---------- Séries de force : un exercice peut en demander moins que le cycle.
+     On conserve alors les plus LOURDES (fin de la montée en charge). ---------- */
+function forcePcts(ex, cyc) {
+  const n = ex && ex.forceSets;
+  return n && n < cyc.pct.length ? cyc.pct.slice(cyc.pct.length - n) : cyc.pct;
+}
 
 /* ---------- Repos effectif : surcharge utilisateur > `rest` de l'exercice > défaut ---------- */
 function restFor(ex, overrides, forceDefault) {
@@ -591,6 +650,8 @@ function loadState() {
       logs: parsed.logs || {},
       prs: Array.isArray(parsed.prs) ? parsed.prs : [],
       restOverrides: parsed.restOverrides || {},
+      dayPlans: parsed.dayPlans || {},
+      perfLog: parsed.perfLog || {},
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
@@ -694,6 +755,15 @@ function RestTimer({ timer, setTimer, settings }) {
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
   }, [timerId]);
+
+  // En arrière-plan les navigateurs bridant setInterval, l'affichage se fige et
+  // l'alerte de fin peut arriver en retard. Dès que l'écran revient, on recalcule
+  // immédiatement à partir de l'horodatage : le décompte se recale d'un coup.
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') setNow(Date.now()); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const remaining = !timer
     ? 0
@@ -855,6 +925,72 @@ function SetRow({ index, weight, reps, pct, checked, onToggle, accent, showPlate
         </span>
       )}
     </button>
+  );
+}
+
+/* ---------- Série d'hypertrophie : charge machine + reps réellement faites.
+     Les inputs sont hors du bouton de validation (un input dans un <button>
+     serait invalide et chaque frappe cocherait la série). ---------- */
+function AccessorySetRow({ index, targetReps, checked, accent, perf, last, onToggle, onPerf }) {
+  const a = ACC[accent];
+  const w = perf && perf.w != null ? perf.w : '';
+  const r = perf && perf.r != null ? perf.r : '';
+  const beat = last && perf && perf.w != null && perf.r != null &&
+    (perf.w > last.w || (perf.w === last.w && perf.r > last.r));
+
+  return (
+    <div
+      className={`rounded-2xl border p-2.5 transition-colors ${
+        checked ? 'border-lime2/45 bg-lime2/[.09]' : 'border-white/10 bg-white/[.035]'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 font-display text-base transition-all press ${
+            checked ? 'border-lime2 grad-lime text-ink pop' : 'border-white/20 bg-white/[.04] text-white/40'
+          }`}
+          style={checked ? { boxShadow: '0 0 22px -4px #39FF14' } : undefined}
+        >
+          {checked ? '✓' : index + 1}
+        </button>
+
+        <div className="relative flex-1">
+          <input
+            type="number" inputMode="decimal" step="0.5" value={w}
+            onChange={(e) => onPerf('w', e.target.value === '' ? null : Math.max(0, parseFloat(e.target.value) || 0))}
+            placeholder={last ? String(last.w) : '—'}
+            className={`w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-3 pr-8 text-center font-display text-lg outline-none focus:border-white/40 ${a.text}`}
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-white/30">KG</span>
+        </div>
+
+        <span className="shrink-0 text-white/25">×</span>
+
+        <div className="relative w-[84px] shrink-0">
+          <input
+            type="number" inputMode="numeric" value={r}
+            onChange={(e) => onPerf('r', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0))}
+            placeholder={last ? String(last.r) : '—'}
+            className="w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-2 pr-9 text-center font-display text-lg text-white/90 outline-none focus:border-white/40"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-white/30">REPS</span>
+        </div>
+      </div>
+
+      <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
+        <span className="text-[9px] font-black uppercase tracking-wider text-white/30">
+          Objectif {targetReps} reps
+        </span>
+        {last ? (
+          <span className={`text-[9px] font-black uppercase tracking-wider ${beat ? 'text-lime2' : 'text-white/35'}`}>
+            {beat ? '▲ mieux que ' : 'dernière : '}{fmtKg(last.w)} kg × {last.r}
+          </span>
+        ) : (
+          <span className="text-[9px] font-black uppercase tracking-wider text-white/20">1re fois</span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1051,7 +1187,7 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, delay }) {
+function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setPerf, lastPerf, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
   const [editRest, setEditRest] = useState(false);
   const week = state.week;
@@ -1063,24 +1199,32 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
   const a = ACC[accent];
 
   // Construction des séries
+  const pcts = isForce ? forcePcts(ex, cyc) : null;
+
   const sets = useMemo(() => {
     if (isForce) {
       if (!oneRM) return [];
-      return cyc.pct.map((p) => ({ weight: round2_5((oneRM * p) / 100), reps: cyc.reps, pct: p }));
+      return pcts.map((p) => ({ weight: round2_5((oneRM * p) / 100), reps: cyc.reps, pct: p }));
     }
     const n = ex.sets || 3;
     return Array.from({ length: n }, () => ({ weight: null, reps: ex.reps, pct: null }));
   }, [isForce, oneRM, week, ex]);
 
+  // Superset : le 1er exercice s'enchaîne sans repos, le repos vient après la paire.
+  // Le partenaire est déterminé à l'affichage, donc résistant à toute réorganisation.
+  const isSSFirst = !!ssPartner;
   const defaultRest = isForce ? cyc.rest : restOf(ex);
-  const restSec = restFor(ex, state.restOverrides, defaultRest);
-  const isCustomRest = restSec !== defaultRest;
+  const restSec = isSSFirst ? 0 : restFor(ex, state.restOverrides, defaultRest);
+  const isCustomRest = !isSSFirst && restSec !== defaultRest;
+  // Clé par NOM d'exercice : les cases cochées suivent l'exercice même si
+  // tu réorganises la séance (un index numérique se décalerait).
   const logs = state.logs[dayKey] || {};
-  const doneCount = sets.filter((_, i) => logs[`${exIdx}|${i}`]).length;
+  const doneCount = sets.filter((_, i) => logs[`${ex.name}|${i}`]).length;
+  const perfToday = (state.perfLog && state.perfLog[dayKey] && state.perfLog[dayKey][ex.name]) || [];
   const complete = sets.length > 0 && doneCount === sets.length;
 
   const restLabel = fmtRest(restSec);
-  const warm = isForce && oneRM ? warmupSets(oneRM, cyc.pct[0]) : [];
+  const warm = isForce && oneRM ? warmupSets(oneRM, pcts[0]) : [];
 
   const kindLabel = { force: 'FORCE', compound: 'POLYARTICULAIRE', isolation: 'ISOLATION', sprint: 'SPRINT', finisher: 'FINISHER', cardio: 'ÉCHAUFFEMENT' }[ex.kind];
 
@@ -1094,6 +1238,7 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
           <div className="min-w-0">
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               <Pill accent={accent}>{kindLabel}</Pill>
+              {ex.ss && <Pill accent="lime">🔗 SUPERSET {ex.ss}</Pill>}
               {isForce && <Pill accent={cyc.accent}>S{week} · {cyc.name}</Pill>}
               {complete && <Pill accent="lime">✓ TERMINÉ</Pill>}
             </div>
@@ -1114,6 +1259,11 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-white/50">
           {isForce && oneRM > 0 && <span>1RM <b className={a.text}>{fmtKg(oneRM)} kg</b></span>}
           {isForce && <span className="text-white/20">|</span>}
+          {isSSFirst && (
+            <span className="rounded-lg border border-lime2/35 bg-lime2/[.08] px-2 py-1 text-[11px] font-bold text-lime2">
+              ⤵ Enchaîne sans repos avec <b>{ssPartner}</b>
+            </span>
+          )}
           {restSec > 0 && (
             <button
               onClick={() => setEditRest((v) => !v)}
@@ -1125,7 +1275,12 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
               <span className="ml-1 text-white/30">✎</span>
             </button>
           )}
-          {isForce && <><span className="text-white/20">|</span><span className="text-white/40">{cyc.tag}</span></>}
+          {isForce && (
+            <>
+              <span className="text-white/20">|</span>
+              <span className="text-white/40">{pcts.length}×{cyc.reps} @ {cyc.tag.split(' @ ')[1]}</span>
+            </>
+          )}
         </div>
 
         {/* Réglage du temps de repos — mémorisé pour les séances suivantes */}
@@ -1171,6 +1326,30 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
           </div>
         )}
 
+        {/* Objectif du jour, en clair */}
+        {isForce && oneRM > 0 && (
+          <div className="mt-3 rounded-2xl border border-white/12 bg-white/[.05] p-3">
+            <p className="text-[9px] font-black uppercase tracking-wider text-white/40">Ce que tu dois faire</p>
+            <p className="mt-0.5 font-display text-base leading-tight text-white">
+              {sets.length} séries × {cyc.reps} rep{cyc.reps > 1 ? 's' : ''}
+            </p>
+            <p className={`mt-0.5 font-display text-lg leading-tight ${a.text}`}>
+              {sets.map((s) => fmtKg(s.weight)).join(' · ')} <span className="text-xs text-white/40">KG</span>
+            </p>
+          </div>
+        )}
+
+        {!isForce && lastPerf && (
+          <div className="mt-3 rounded-2xl border border-white/12 bg-white/[.04] p-2.5">
+            <p className="text-[9px] font-black uppercase tracking-wider text-white/40">
+              Dernière séance ({new Date(lastPerf.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}) — à battre
+            </p>
+            <p className="mt-0.5 text-[12px] font-extrabold text-white/75">
+              {lastPerf.sets.map((s, k) => (s && (s.w || s.r) ? `${fmtKg(s.w || 0)}×${s.r || 0}` : '—')).join('  ·  ')}
+            </p>
+          </div>
+        )}
+
         {isForce && <p className="mt-2 text-[11px] font-semibold italic text-white/40">{cyc.rpe}</p>}
         {ex.note && <p className="mt-2 rounded-xl border border-white/[.07] bg-white/[.03] p-2.5 text-[11px] font-medium leading-relaxed text-white/55">💡 {ex.note}</p>}
       </div>
@@ -1212,8 +1391,45 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
       {sets.length > 0 && (
         <div className="space-y-1.5 px-4 pb-4">
           {sets.map((s, i) => {
-            const key = `${exIdx}|${i}`;
+            const key = `${ex.name}|${i}`;
             const checked = !!logs[key];
+            const toggle = () => {
+              const nowChecked = !checked;
+              toggleSet(dayKey, key, nowChecked);
+              vibrate(nowChecked ? 35 : 0);
+              const isLast = i === sets.length - 1;
+              if (nowChecked && restSec > 0 && !isLast) {
+                startTimer(restSec, `${ex.name} — série ${i + 1}/${sets.length}`, accent);
+              }
+            };
+
+            if (!isForce) {
+              const lastSet = lastPerf && lastPerf.sets ? lastPerf.sets[i] : null;
+              const validLast = lastSet && (lastSet.w || lastSet.r) ? lastSet : null;
+              return (
+                <AccessorySetRow
+                  key={key}
+                  index={i}
+                  targetReps={s.reps}
+                  checked={checked}
+                  accent={accent}
+                  perf={perfToday[i]}
+                  last={validLast}
+                  onPerf={(field, value) => setPerf(dayKey, ex.name, i, field, value)}
+                  onToggle={() => {
+                    // Valider sans rien saisir reprend la perf précédente :
+                    // on suppose la même charge tant que rien n'est modifié.
+                    const cur = perfToday[i] || {};
+                    if (!checked && validLast && cur.w == null && cur.r == null) {
+                      setPerf(dayKey, ex.name, i, 'w', validLast.w);
+                      setPerf(dayKey, ex.name, i, 'r', validLast.r);
+                    }
+                    toggle();
+                  }}
+                />
+              );
+            }
+
             return (
               <SetRow
                 key={key}
@@ -1224,15 +1440,7 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
                 checked={checked}
                 accent={accent}
                 showPlates={isForce}
-                onToggle={() => {
-                  const nowChecked = !checked;
-                  toggleSet(dayKey, key, nowChecked);
-                  vibrate(nowChecked ? 35 : 0);
-                  const isLast = i === sets.length - 1;
-                  if (nowChecked && restSec > 0 && !isLast) {
-                    startTimer(restSec, `${ex.name} — série ${i + 1}/${sets.length}`, accent);
-                  }
-                }}
+                onToggle={() => toggle()}
               />
             );
           })}
@@ -1260,14 +1468,191 @@ function ExerciseCard({ ex, exIdx, state, dayKey, toggleSet, startTimer, openPR,
 }
 
 /* ============================================================
+   8 bis. ÉDITEUR DE SÉANCE — ordre & choix des exercices
+   ============================================================ */
+
+function ExercisePicker({ exclude, onPick, onClose, title }) {
+  const [q, setQ] = useState('');
+  const list = CATALOG_LIST.filter(
+    (ex) => !exclude.includes(ex.name) && ex.name.toLowerCase().includes(q.toLowerCase())
+  );
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className={`glass-strong slide-up relative flex max-h-[80vh] w-full max-w-md flex-col rounded-t-3xl p-5 sm:rounded-3xl ${ACC.cyan.ring}`}
+        style={{ paddingBottom: 'calc(20px + var(--safe-b))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[10px] uppercase tracking-[.2em] text-white/40">{title}</p>
+            <h3 className="font-display text-lg leading-tight text-cyan2">Choisir un exercice</h3>
+          </div>
+          <button onClick={onClose} className="press h-10 w-10 shrink-0 rounded-xl border border-white/12 bg-white/[.05] font-display text-white/50">✕</button>
+        </div>
+
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher…"
+          className="mb-3 w-full rounded-xl border border-white/12 bg-white/[.05] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan2/60"
+        />
+
+        <div className="-mx-1 flex-1 space-y-1.5 overflow-y-auto px-1">
+          {list.length === 0 && (
+            <p className="py-6 text-center text-[11px] font-semibold text-white/35">
+              Aucun exercice disponible. Tous ceux du catalogue sont déjà dans cette séance.
+            </p>
+          )}
+          {list.map((ex) => {
+            const isForce = ex.kind === 'force';
+            return (
+              <button
+                key={ex.name}
+                onClick={() => onPick(ex.name)}
+                className="press flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-3 text-left"
+              >
+                <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? 'grad-pink' : 'bg-white/20'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-extrabold text-white/85">{ex.name}</p>
+                  <p className="text-[10px] font-bold text-white/35">
+                    {isForce ? 'Mouvement principal · basé sur ton 1RM' : `${ex.sets}×${ex.reps} · repos ${fmtRest(restOf(ex))}`}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionEditor({ dow, state, setDayPlan, onDone }) {
+  const base = PROGRAM[dow].exercises.map((e) => e.name);
+  const current = (state.dayPlans && state.dayPlans[dow]) || base;
+  const [picker, setPicker] = useState(null); // { mode:'add'|'replace', index }
+
+  const commit = (names) => setDayPlan(dow, names);
+
+  const move = (i, dir) => {
+    const next = current.slice();
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    const t = next[i]; next[i] = next[j]; next[j] = t;
+    commit(next);
+  };
+  const remove = (i) => {
+    const next = current.slice();
+    next.splice(i, 1);
+    commit(next);
+  };
+  const modified = JSON.stringify(current) !== JSON.stringify(base);
+
+  return (
+    <>
+      <Card accent="cyan" glow className="rise p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-display text-sm uppercase text-white">✏️ Modifier la séance</p>
+            <p className="text-[10px] font-semibold text-white/40">
+              Réorganise, remplace ou retire. Enregistré automatiquement.
+            </p>
+          </div>
+          <button onClick={onDone} className="press shrink-0 rounded-xl grad-cyan px-4 py-2.5 font-display text-[11px] uppercase text-ink">
+            Terminé
+          </button>
+        </div>
+
+        <div className="space-y-1.5">
+          {current.map((name, i) => {
+            const ex = CATALOG.get(name);
+            if (!ex) return null;
+            const isForce = ex.kind === 'force';
+            return (
+              <div key={name} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[.03] p-2.5">
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    onClick={() => move(i, -1)} disabled={i === 0}
+                    className="press h-7 w-7 rounded-lg border border-white/12 bg-white/[.05] text-[11px] font-black text-white/60 disabled:opacity-25"
+                  >▲</button>
+                  <button
+                    onClick={() => move(i, 1)} disabled={i === current.length - 1}
+                    className="press h-7 w-7 rounded-lg border border-white/12 bg-white/[.05] text-[11px] font-black text-white/60 disabled:opacity-25"
+                  >▼</button>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-[12px] font-extrabold ${isForce ? 'text-neon' : 'text-white/85'}`}>
+                    {ex.ss && <span className="mr-1 text-lime2">🔗</span>}{name}
+                  </p>
+                  <p className="text-[10px] font-bold text-white/35">
+                    {isForce ? 'Mouvement principal' : `${ex.sets}×${ex.reps}`}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setPicker({ mode: 'replace', index: i })}
+                  className="press shrink-0 rounded-lg border border-white/12 bg-white/[.05] px-2.5 py-2 text-[11px] font-black text-white/60"
+                >🔄</button>
+                <button
+                  onClick={() => remove(i)}
+                  className="press shrink-0 rounded-lg border border-neon/35 bg-neon/[.08] px-2.5 py-2 text-[11px] font-black text-neon"
+                >✕</button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <GhostButton accent="cyan" className="flex-1" onClick={() => setPicker({ mode: 'add' })}>
+            ＋ Ajouter un exercice
+          </GhostButton>
+          {modified && (
+            <GhostButton accent="viol" onClick={() => setDayPlan(dow, null)}>
+              ↺ Séance d'origine
+            </GhostButton>
+          )}
+        </div>
+
+        <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/30">
+          Tu ne peux choisir que des exercices déjà présents dans le programme. Pour en créer de nouveaux,
+          dis-le-moi et j'ajoute un formulaire de création.
+        </p>
+      </Card>
+
+      {picker && (
+        <ExercisePicker
+          exclude={current}
+          title={picker.mode === 'replace' ? `Remplacer « ${current[picker.index]} »` : 'Ajouter à la séance'}
+          onClose={() => setPicker(null)}
+          onPick={(name) => {
+            const next = current.slice();
+            if (picker.mode === 'replace') next[picker.index] = name;
+            else next.push(name);
+            commit(next);
+            setPicker(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/* ============================================================
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOverride, goProfile }) {
+function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
+  const [editing, setEditing] = useState(false);
   const stripRef = useRef(null);
   const session = PROGRAM[dow];
+  const exList = exercisesFor(dow, state);
+  const isCustomPlan = !!(state.dayPlans && state.dayPlans[dow]);
 
   // Recentre le jour actif dans le carrousel (sinon DIM/SAM restent hors écran)
   useEffect(() => {
@@ -1282,27 +1667,33 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
   const sessionDate = isToday ? new Date() : dateOfWeekday(dow);
   const dKey = dateKey(sessionDate);
   const cyc = CYCLE[state.week];
+  const lastPerfMap = useMemo(() => buildLastPerf(state.perfLog, dKey), [state.perfLog, dKey]);
 
   // Statistiques du jour
   const stats = useMemo(() => {
     if (session.off) return { total: 0, done: 0, tonnage: 0 };
     const logs = state.logs[dKey] || {};
     let total = 0, done = 0, tonnage = 0;
-    session.exercises.forEach((ex, exIdx) => {
+    exList.forEach((ex, exIdx) => {
       let sets = [];
       if (ex.kind === 'force') {
         const rm = Number(state.profile[ex.lift] || 0);
-        sets = rm ? cyc.pct.map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
+        sets = rm ? forcePcts(ex, cyc).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
       } else {
-        sets = Array.from({ length: ex.sets || 3 }, () => ({ w: 0, r: 0 }));
+        // Le tonnage des accessoires vient des charges réellement saisies
+        const perf = (state.perfLog && state.perfLog[dKey] && state.perfLog[dKey][ex.name]) || [];
+        sets = Array.from({ length: ex.sets || 3 }, (_, i) => ({
+          w: (perf[i] && perf[i].w) || 0,
+          r: (perf[i] && perf[i].r) || 0,
+        }));
       }
       sets.forEach((s, i) => {
         total++;
-        if (logs[`${exIdx}|${i}`]) { done++; tonnage += s.w * s.r; }
+        if (logs[`${ex.name}|${i}`]) { done++; tonnage += s.w * s.r; }
       });
     });
     return { total, done, tonnage };
-  }, [state, dKey, session, cyc]);
+  }, [state, dKey, session, cyc, exList]);
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
@@ -1401,17 +1792,34 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
             </Card>
           )}
 
-          {session.exercises.map((ex, i) => (
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className={`press flex w-full items-center justify-center gap-2 rounded-2xl border py-3 font-display text-[11px] uppercase tracking-wider ${
+              editing || isCustomPlan ? 'border-cyan2/40 bg-cyan2/[.08] text-cyan2' : 'border-white/15 bg-white/[.04] text-white/50'
+            }`}
+          >
+            ✏️ {editing ? 'Fermer l\'éditeur' : 'Modifier la séance'}
+            {isCustomPlan && !editing && <span className="text-[9px] text-cyan2/70">· personnalisée</span>}
+          </button>
+
+          {editing && (
+            <SessionEditor dow={dow} state={state} setDayPlan={setDayPlan} onDone={() => setEditing(false)} />
+          )}
+
+          {exList.map((ex, i) => (
             <ExerciseCard
-              key={`${dow}-${i}`}
+              key={`${dow}-${ex.name}`}
               ex={ex}
               exIdx={i}
+              ssPartner={ssPartnerAt(exList, i)}
               state={state}
               dayKey={dKey}
               toggleSet={toggleSet}
               startTimer={startTimer}
               openPR={openPR}
               setRestOverride={setRestOverride}
+              setPerf={setPerf}
+              lastPerf={lastPerfMap[ex.name]}
               delay={i * 55}
             />
           ))}
@@ -1497,27 +1905,32 @@ function ProgramView({ state }) {
 
             {isOpen && !p.off && (
               <div className="space-y-1.5 px-4 pb-4">
-                {p.exercises.map((ex, i) => {
+                {exercisesFor(d, state).map((ex, i) => {
                   const isForce = ex.kind === 'force';
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
-                  const restSec = restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
+                  const pcts = isForce ? forcePcts(ex, cyc) : null;
+                  const ssNext = ssPartnerAt(exercisesFor(d, state), i);
+                  const restSec = ssNext ? 0 : restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
                   return (
-                    <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.025] p-3">
-                      <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? acc2.grad : 'bg-white/15'}`} />
+                    <div key={i} className={`flex items-center gap-3 rounded-2xl border p-3 ${ex.ss ? 'border-lime2/25 bg-lime2/[.04]' : 'border-white/[.08] bg-white/[.025]'}`}>
+                      <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? acc2.grad : ex.ss ? 'grad-lime' : 'bg-white/15'}`} />
                       <div className="min-w-0 flex-1">
-                        <p className={`truncate text-[13px] font-extrabold ${isForce ? acc2.text : 'text-white/85'}`}>{ex.name}</p>
+                        <p className={`truncate text-[13px] font-extrabold ${isForce ? acc2.text : 'text-white/85'}`}>
+                          {ex.ss && <span className="mr-1 text-lime2">🔗</span>}{ex.name}
+                        </p>
                         <p className="text-[10px] font-bold text-white/35">
                           {isForce
-                            ? `${cyc.pct.length}×${cyc.reps} · ${cyc.tag.split(' @ ')[1]}`
-                            : `${ex.sets}×${ex.reps}`}{restSec ? ` · repos ${fmtRest(restSec)}` : ''}
+                            ? `${pcts.length}×${cyc.reps} · ${cyc.tag.split(' @ ')[1]}`
+                            : `${ex.sets}×${ex.reps}`}
+                          {ssNext ? ' · enchaîné' : restSec ? ` · repos ${fmtRest(restSec)}` : ''}
                         </p>
                       </div>
                       {isForce && rm > 0 && (
                         <div className="shrink-0 text-right">
                           <div className={`font-display text-lg leading-none ${acc2.text}`}>
-                            {fmtKg(round2_5((rm * cyc.pct[0]) / 100))}
-                            <span className="text-[9px] text-white/35">→{fmtKg(round2_5((rm * cyc.pct[cyc.pct.length - 1]) / 100))}</span>
+                            {fmtKg(round2_5((rm * pcts[0]) / 100))}
+                            <span className="text-[9px] text-white/35">→{fmtKg(round2_5((rm * pcts[pcts.length - 1]) / 100))}</span>
                           </div>
                           <div className="text-[8px] font-black uppercase tracking-wider text-white/30">KG</div>
                         </div>
@@ -1613,7 +2026,7 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ironcycle-${dateKey()}.json`;
+    a.download = `odp-${dateKey()}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -2045,7 +2458,7 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
       </div>
 
       <p className="px-2 pb-2 pt-3 text-center text-[10px] font-semibold leading-relaxed text-white/25">
-        IRON CYCLE — Programme hybride Force & Hypertrophie.<br />
+        ODP — Programme hybride Force & Hypertrophie.<br />
         Données 100 % locales (LocalStorage). Aucun compte, aucun serveur.
       </p>
     </div>
@@ -2351,9 +2764,11 @@ function Header({ state }) {
   return (
     <header className="mb-4 flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="font-display text-2xl leading-none">
-          <span className="clip-text grad-pink">IRON</span>{' '}
-          <span className="clip-text grad-cyan">CYCLE</span>
+        <h1
+          className="clip-text font-display text-3xl leading-none tracking-tight"
+          style={{ backgroundImage: 'linear-gradient(110deg,#FF007F,#8B5CF6 55%,#00F0FF)' }}
+        >
+          ODP
         </h1>
         <p className="mt-1 text-[10px] font-black uppercase tracking-[.18em] text-white/35">
           {prettyDate()}
@@ -2464,6 +2879,35 @@ function App() {
     });
   }, []);
 
+  // Charge & reps réalisées sur une série d'hypertrophie
+  const setPerf = useCallback((dayKey, exName, setIdx, field, value) => {
+    setState((s) => {
+      const log = { ...(s.perfLog || {}) };
+      const day = { ...(log[dayKey] || {}) };
+      const sets = (day[exName] || []).slice();
+      while (sets.length <= setIdx) sets.push({});
+      sets[setIdx] = { ...sets[setIdx], [field]: value };
+      day[exName] = sets;
+      log[dayKey] = day;
+
+      // Borne l'historique aux 90 dernières dates : inutile de tout garder
+      const keys = Object.keys(log).sort();
+      if (keys.length > 90) keys.slice(0, keys.length - 90).forEach((k) => delete log[k]);
+
+      return { ...s, perfLog: log };
+    });
+  }, []);
+
+  // Séance réorganisée par l'utilisateur (null = retour au programme d'origine)
+  const setDayPlan = useCallback((dow, names) => {
+    setState((s) => {
+      const next = { ...(s.dayPlans || {}) };
+      if (names == null) delete next[dow];
+      else next[dow] = names;
+      return { ...s, dayPlans: next };
+    });
+  }, []);
+
   // Temps de repos personnalisé, mémorisé par nom d'exercice (null = retour au défaut)
   const setRestOverride = useCallback((name, seconds) => {
     setState((s) => {
@@ -2500,6 +2944,8 @@ function App() {
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
           setRestOverride={setRestOverride}
+          setDayPlan={setDayPlan}
+          setPerf={setPerf}
           goProfile={() => { setTab('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
@@ -2548,12 +2994,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     x.fillStyle = '#0B1020';
     x.font = '900 150px Impact, sans-serif';
     x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('SBD', 256, 258);
+    x.fillText('ODP', 256, 258);
     const icon = c.toDataURL('image/png');
 
     const manifest = {
-      name: 'Iron Cycle — Hybrid SBD',
-      short_name: 'Iron Cycle',
+      name: 'ODP — Force & Hypertrophie',
+      short_name: 'ODP',
       start_url: '.',
       display: 'standalone',
       background_color: '#0B1020',
