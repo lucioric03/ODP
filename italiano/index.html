@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Il Ponte — Italien par répétition espacée</title>
+<meta name="description" content="800 mots, 108 verbes, 168 phrases. Planificateur FSRS et dosage quotidien fondé sur la recherche en psychologie de la mémoire.">
+<meta name="theme-color" content="#080B14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Il Ponte">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='33' height='100' fill='%23009246'/><rect x='33' width='34' height='100' fill='%23F1F2F1'/><rect x='67' width='33' height='100' fill='%23CE2B37'/></svg>">
+</head>
+<body>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="flag"><i></i><i></i><i></i></div>
+      <div>
+        <h1>Il Ponte</h1>
+        <small>italien · répétition espacée</small>
+      </div>
+    </div>
+    <div class="streak" id="streak">🔥 0</div>
+  </header>
+
+  <section class="view on" id="v-home"><div id="home"></div></section>
+
+  <section class="view" id="v-study"><div id="study" class="studywrap"></div></section>
+
+  <section class="view" id="v-plan">
+    <div class="panel" style="background:linear-gradient(150deg,rgba(76,201,255,.13),rgba(155,123,255,.07));border-color:rgba(76,201,255,.28)">
+      <h2>Protocole <span class="tag">ce que dit la recherche</span></h2>
+      <p class="sub">Combien de mots par jour, combien de minutes, à quel rythme les revoir — et pourquoi.
+        Chaque nombre affiché ici sort d'un modèle explicite, pas d'une intuition.</p>
+    </div>
+    <div id="plan"></div>
+  </section>
+
+  <section class="view" id="v-stats"><div id="stats"></div></section>
+  <section class="view" id="v-browse"><div id="browse"></div></section>
+  <section class="view" id="v-settings"><div id="settings"></div></section>
+</div>
+
+<nav class="nav">
+  <div class="inner">
+    <button data-go="home" class="on"><i>🏠</i>Accueil</button>
+    <button data-go="plan"><i>🧠</i>Protocole</button>
+    <button data-go="browse"><i>📖</i>Explorer</button>
+    <button data-go="stats"><i>📊</i>Stats</button>
+    <button data-go="settings"><i>⚙️</i>Réglages</button>
+  </div>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="data/words.js"></script>
+<script src="data/verbs.js"></script>
+<script src="data/sentences.js"></script>
+<script src="js/conjugator.js"></script>
+<script src="js/srs.js"></script>
+<script>
+  /* les modules exposent leurs symboles globalement ; on regroupe l'API SRS */
+  const SRS = { retrievability, intervalFor, newCard, review, preview, currentR,
+                dailyLoad, newPerDayForMinutes, reviewsPerCardPerYear, todayStamp, GRADE };
+</script>
+<script src="js/app.js"></script>
+</body>
+</html>

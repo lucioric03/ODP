@@ -1,0 +1,14 @@
+{
+  "name": "Il Ponte — Italien",
+  "short_name": "Il Ponte",
+  "description": "800 mots, 108 verbes, 168 phrases — répétition espacée FSRS.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080B14",
+  "theme_color": "#080B14",
+  "icons": [
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='171' height='512' fill='%23009246'/%3E%3Crect x='171' width='170' height='512' fill='%23F1F2F1'/%3E%3Crect x='341' width='171' height='512' fill='%23CE2B37'/%3E%3C/svg%3E",
+      "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
