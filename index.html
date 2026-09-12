@@ -639,6 +639,117 @@ const AudioFX = {
   },
 };
 
+/* ============================================================
+   3 bis. ALARME DE FIN DE REPOS — ARRIÈRE-PLAN
+   ------------------------------------------------------------
+   Écran verrouillé ou appli en fond, les navigateurs gèlent les
+   minuteurs JS : la sonnerie arriverait en retard, voire jamais.
+   On confie donc l'alerte au lecteur audio du système. Au départ du
+   repos (donc pendant le geste de l'utilisateur, seul moment où iOS
+   autorise la lecture) on fabrique un WAV = durée du repos en quasi
+   silence + motif d'alarme, et on le lance. Le son part à l'heure
+   même si plus aucune ligne de JS ne tourne.
+
+   Musique : le type de session audio « transient » demande au système
+   de MÉLANGER notre son aux autres applis au lieu de les couper —
+   Spotify continue, simplement atténué. Sans cette API (iOS < 16.4),
+   le navigateur garde son comportement habituel.
+   ============================================================ */
+
+const BgAlarm = {
+  el: null,
+  url: null,
+  alarmAt: 0,
+  armed: false,
+  RATE: 8000,
+  ALARM_LEN: 2.4,
+  LEAD: 0.35,   // l'alarme système part juste après le JS : en avant-plan
+                // on l'annule à temps et le « YEAH BUDDY » joue seul.
+
+  available() {
+    return typeof Blob !== 'undefined' && typeof URL !== 'undefined' && !!URL.createObjectURL;
+  },
+
+  session(type) {
+    try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (e) {}
+  },
+
+  // WAV 8 bits / 8 kHz : ~8 Ko par seconde de repos, lisible partout.
+  buildWav(silenceSec) {
+    const rate = this.RATE;
+    const n = Math.ceil((silenceSec + this.ALARM_LEN) * rate);
+    const buf = new ArrayBuffer(44 + n);
+    const dv = new DataView(buf);
+    const wr = (off, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i)); };
+    wr(0, 'RIFF');  dv.setUint32(4, 36 + n, true);
+    wr(8, 'WAVEfmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, rate, true); dv.setUint32(28, rate, true);
+    dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+    wr(36, 'data'); dv.setUint32(40, n, true);
+
+    const pcm = new Uint8Array(buf, 44, n);
+    pcm.fill(128);
+    const start = Math.floor(silenceSec * rate);
+    // Souffle inaudible : un flux de silence numérique pur peut être
+    // interrompu par le système, qui le prend pour une piste morte.
+    for (let i = 0; i < start; i += 977) pcm[i] = 129;
+
+    // 3 bips courts puis une tenue : reconnaissable même poche fermée.
+    [[0, 0.16, 988], [0.24, 0.16, 988], [0.48, 0.16, 1318], [0.8, 1.3, 880]].forEach((b) => {
+      const s0 = start + Math.floor(b[0] * rate);
+      const s1 = Math.min(n, s0 + Math.floor(b[1] * rate));
+      for (let i = s0; i < s1; i++) {
+        const t = (i - s0) / rate;
+        const env = Math.min(1, t / 0.012, (s1 - i) / rate / 0.04);
+        pcm[i] = 128 + Math.round(112 * env * Math.sin(2 * Math.PI * b[2] * t));
+      }
+    });
+    return new Blob([buf], { type: 'audio/wav' });
+  },
+
+  arm(seconds) {
+    this.disarm();
+    if (!(seconds > 0) || !this.available()) return false;
+    try {
+      this.url = URL.createObjectURL(this.buildWav(seconds + this.LEAD));
+      if (!this.el) {
+        this.el = new Audio();
+        this.el.preload = 'auto';
+        this.el.setAttribute('playsinline', '');
+        this.el.setAttribute('webkit-playsinline', '');
+      }
+      this.session('transient');
+      this.el.loop = false;
+      this.el.volume = 1;
+      this.el.src = this.url;
+      this.alarmAt = seconds + this.LEAD;
+      this.armed = true;
+      const p = this.el.play();
+      if (p && p.catch) p.catch(() => { this.armed = false; });
+      return true;
+    } catch (e) { this.armed = false; return false; }
+  },
+
+  // Le motif d'alarme a-t-il déjà retenti ? (retour d'arrière-plan)
+  fired() {
+    try { return this.armed && !!this.el && this.el.currentTime >= this.alarmAt + 0.05; }
+    catch (e) { return false; }
+  },
+
+  disarm() {
+    this.armed = false;
+    this.alarmAt = 0;
+    try {
+      if (this.el) { this.el.pause(); this.el.removeAttribute('src'); this.el.load(); }
+    } catch (e) {}
+    if (this.url) {
+      try { URL.revokeObjectURL(this.url); } catch (e) {}
+      this.url = null;
+    }
+  },
+};
+
 /* ---------- Son personnalisé (clé séparée : évite de resérialiser
      un fichier audio à chaque case cochée) ---------- */
 const SOUND_KEY = 'ironcycle.sound.v1';
@@ -666,7 +777,7 @@ const DEFAULT_STATE = {
   profile: { squat: 0, bench: 0, deadlift: 0, ohp: 0 },
   week: 1,
   cycleNo: 1,
-  settings: { sound: true, vibration: true, autoTimer: true },
+  settings: { sound: true, vibration: true, autoTimer: true, bgAlarm: true },
   logs: {},   // { 'YYYY-MM-DD': { '0|2': true, ... } }
   prs: [],    // [{ id, lift, weight, reps, e1rm, prev, date, kind }]
   restOverrides: {},  // { "Nom de l'exercice": secondes }
@@ -793,6 +904,13 @@ function ProgressBar({ value, total, accent = 'lime' }) {
    6. CHRONOMÈTRE DE REPOS
    ============================================================ */
 
+/* Replanifie l'alarme système sur le temps restant (±30 s, reprise…).
+   Toujours appelé depuis un clic : iOS n'autorise la lecture que là. */
+function rearmAlarm(settings, seconds) {
+  if (settings && settings.sound && settings.bgAlarm !== false) BgAlarm.arm(seconds);
+  else BgAlarm.disarm();
+}
+
 function RestTimer({ timer, setTimer, settings }) {
   const [now, setNow] = useState(Date.now());
   const firedRef = useRef(false);
@@ -803,7 +921,7 @@ function RestTimer({ timer, setTimer, settings }) {
   useEffect(() => {
     firedRef.current = false;
     lastTickRef.current = null;
-    if (!timerId) return;
+    if (!timerId) { BgAlarm.disarm(); return; }
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
   }, [timerId]);
@@ -840,7 +958,11 @@ function RestTimer({ timer, setTimer, settings }) {
     if (remaining <= 0 && !firedRef.current) {
       firedRef.current = true;
       if (settings.vibration) vibrate([200, 100, 200, 100, 500]);
-      if (settings.sound) AudioFX.yeahBuddy();
+      // Si le JS était gelé (écran verrouillé, autre appli), l'alarme système
+      // a déjà sonné : inutile de la doubler au retour dans l'appli.
+      const rang = BgAlarm.fired();
+      BgAlarm.disarm();
+      if (settings.sound && !rang) AudioFX.yeahBuddy();
     }
   });
 
@@ -883,14 +1005,23 @@ function RestTimer({ timer, setTimer, settings }) {
           {!done && (
             <div className="mt-2 flex gap-1.5">
               <button
-                onClick={() => setTimer((t) => t && ({ ...t, endsAt: t.endsAt + 30000 }))}
+                onClick={() => setTimer((t) => {
+                  if (!t) return t;
+                  const next = { ...t, endsAt: t.endsAt + 30000 };
+                  if (!next.paused) rearmAlarm(settings, (next.endsAt - Date.now()) / 1000);
+                  return next;
+                })}
                 className="press rounded-lg border border-white/15 bg-white/[.06] px-2 py-1 text-[10px] font-black text-white/75"
               >+30s</button>
               <button
                 onClick={() =>
                   setTimer((t) => {
                     if (!t) return t;
-                    if (t.paused) return { ...t, paused: false, endsAt: Date.now() + t.remaining * 1000 };
+                    if (t.paused) {
+                      rearmAlarm(settings, t.remaining);
+                      return { ...t, paused: false, endsAt: Date.now() + t.remaining * 1000 };
+                    }
+                    BgAlarm.disarm();
                     return { ...t, paused: true, remaining: Math.max(0, (t.endsAt - Date.now()) / 1000) };
                   })
                 }
@@ -902,7 +1033,7 @@ function RestTimer({ timer, setTimer, settings }) {
 
         {/* Fermer */}
         <button
-          onClick={() => { vibrate(0); setTimer(null); }}
+          onClick={() => { vibrate(0); BgAlarm.disarm(); setTimer(null); }}
           className={`press shrink-0 whitespace-pre-line rounded-2xl px-4 py-4 text-center font-display text-xs uppercase leading-tight ${done ? 'grad-lime text-ink' : 'border border-white/15 bg-white/[.06] text-white/70'}`}
           style={done ? { boxShadow: '0 8px 26px -8px #39FF14' } : undefined}
         >
@@ -2398,6 +2529,12 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
           onChange={(v) => { if (v) vibrate(60); setState((s) => ({ ...s, settings: { ...s.settings, vibration: v } })); }}
         />
         <Toggle
+          label="Alerte en arrière-plan"
+          desc="Sonne écran verrouillé ou appli fermée · se mélange à Spotify sans le couper"
+          val={state.settings.bgAlarm !== false}
+          onChange={(v) => { if (v) AudioFX.unlock(); setState((s) => ({ ...s, settings: { ...s.settings, bgAlarm: v } })); }}
+        />
+        <Toggle
           label="Chrono automatique"
           desc="Démarre le repos dès qu'une série est validée"
           val={state.settings.autoTimer}
@@ -2409,6 +2546,16 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
         >
           🔊 Tester l'alerte
         </button>
+        <button
+          onClick={() => { AudioFX.unlock(); BgAlarm.arm(8); }}
+          className="press w-full rounded-2xl border border-cyan2/40 bg-cyan2/[.1] py-3.5 font-display text-xs uppercase tracking-wider text-cyan2"
+        >
+          🔔 Tester en arrière-plan — 8 s
+        </button>
+        <p className="px-1 text-[10px] font-semibold leading-relaxed text-white/35">
+          Lance le test puis verrouille l'écran ou passe sur une autre appli : l'alarme doit
+          retentir 8 s plus tard. Sur iPhone, garde le bouton latéral silencieux désactivé.
+        </p>
       </div>
 
       {/* Son personnalisé */}
@@ -2996,6 +3143,9 @@ function App() {
 
   const startTimer = useCallback((seconds, label, accent) => {
     if (!settingsRef.current.autoTimer) return;
+    // Armé ici, dans le geste qui valide la série : l'alerte de fin est
+    // confiée au système et sonnera même appli fermée ou écran verrouillé.
+    rearmAlarm(settingsRef.current, seconds);
     timerIdRef.current += 1;
     setTimer({
       id: timerIdRef.current,
