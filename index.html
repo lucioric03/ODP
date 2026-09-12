@@ -309,12 +309,16 @@ function exercisesFor(dow, state) {
   return out.length ? out : p.exercises;
 }
 
-/* ---------- Dernière performance connue par exercice (toutes dates antérieures).
-     Sert de repère à battre : « la dernière fois, 40 kg × 10 ». ---------- */
+/* ---------- Dernière performance connue par exercice, sur LE MÊME JOUR de la
+     semaine uniquement. Un exercice placé le mardi et le jeudi n'est pas fait
+     dans les mêmes conditions (fatigue, repos, ordre de la séance) : chaque
+     jour garde donc ses propres charges, et ce que tu saisis un jeudi ne
+     déplace que le repère du jeudi suivant. ---------- */
 function buildLastPerf(perfLog, beforeKey) {
   const out = {};
+  const dow = dowOfKey(beforeKey);
   Object.keys(perfLog || {})
-    .filter((d) => d < beforeKey)
+    .filter((d) => d < beforeKey && dowOfKey(d) === dow)
     .sort()                                   // croissant → la plus récente écrase
     .forEach((d) => {
       Object.keys(perfLog[d]).forEach((name) => {
@@ -323,6 +327,15 @@ function buildLastPerf(perfLog, beforeKey) {
       });
     });
   return out;
+}
+
+/* ---------- Jour de la semaine d'une clé 'YYYY-MM-DD' (0 = dimanche).
+     Midi local : aucun décalage d'heure d'été ne peut faire basculer le jour. ---------- */
+function dowOfKey(key) {
+  const parts = String(key || '').split('-');
+  if (parts.length !== 3) return -1;
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12);
+  return isNaN(d.getTime()) ? -1 : d.getDay();
 }
 
 /* ---------- Une perf stockée peut être partielle (charge sans reps, série
@@ -1398,7 +1411,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
         {!isForce && lastPerf && (
           <div className="mt-3 rounded-2xl border border-white/12 bg-white/[.04] p-2.5">
             <p className="text-[9px] font-black uppercase tracking-wider text-white/40">
-              Dernière séance ({new Date(lastPerf.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}) — à battre
+              Dernier {new Date(lastPerf.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })} — à battre
             </p>
             <p className="mt-0.5 text-[12px] font-extrabold text-white/75">
               {lastPerf.sets.map((s) => fmtPerf(s)).join('  ·  ')}
