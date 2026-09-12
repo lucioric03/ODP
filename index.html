@@ -318,11 +318,41 @@ function buildLastPerf(perfLog, beforeKey) {
     .sort()                                   // croissant → la plus récente écrase
     .forEach((d) => {
       Object.keys(perfLog[d]).forEach((name) => {
-        const sets = perfLog[d][name];
-        if (sets && sets.some((s) => s && (s.w || s.r))) out[name] = { date: d, sets };
+        const sets = (perfLog[d][name] || []).map(normPerf);
+        if (sets.some((s) => s.w != null || s.r != null)) out[name] = { date: d, sets };
       });
     });
   return out;
+}
+
+/* ---------- Une perf stockée peut être partielle (charge sans reps, série
+     jamais remplie…). On la ramène toujours à { w, r } avec des nombres ou
+     null : plus aucun « undefined » ne peut remonter jusqu'à l'écran. ---------- */
+function normPerf(s) {
+  const n = (v) => (typeof v === 'number' && isFinite(v) ? v : v != null && v !== '' && isFinite(Number(v)) ? Number(v) : null);
+  return { w: n(s && s.w), r: n(s && s.r) };
+}
+
+/* ---------- Charge à reprendre pour la série i : celle de la même série la
+     dernière fois, sinon la série valide la plus proche de cette séance-là.
+     Un exercice repris garde ainsi son poids même si tu changes de nombre
+     de séries. ---------- */
+function lastSetFor(lastPerf, i) {
+  const sets = lastPerf && lastPerf.sets ? lastPerf.sets : null;
+  if (!sets || !sets.length) return null;
+  const at = (k) => {
+    const s = sets[k] ? normPerf(sets[k]) : null;
+    return s && (s.w != null || s.r != null) ? s : null;
+  };
+  const exact = at(i);
+  if (exact) return exact;
+  for (let d = 1; d < sets.length; d++) {
+    const before = i - d >= 0 ? at(i - d) : null;
+    if (before) return before;
+    const after = i + d < sets.length ? at(i + d) : null;
+    if (after) return after;
+  }
+  return null;
 }
 
 // Nom du partenaire de superset : l'exercice suivant du même groupe, s'il existe
@@ -338,6 +368,14 @@ function ssPartnerAt(list, i) {
 const round2_5 = (kg) => Math.round(kg / 2.5) * 2.5;
 // 152.5 → "152.5" · 1.25 → "1.25" · 60 → "60"  (jamais d'arrondi trompeur)
 const fmtKg = (kg) => String(parseFloat(Number(kg).toFixed(2)));
+// Perf d'une série : « 40×10 », « 10 reps » ou « 40 kg » si l'un des deux manque.
+const fmtPerf = (s) => {
+  const n = normPerf(s);
+  if (n.w != null && n.r != null) return `${fmtKg(n.w)}×${n.r}`;
+  if (n.w != null) return `${fmtKg(n.w)} kg`;
+  if (n.r != null) return `${n.r} reps`;
+  return '—';
+};
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function dateKey(d = new Date()) {
@@ -933,10 +971,24 @@ function SetRow({ index, weight, reps, pct, checked, onToggle, accent, showPlate
      serait invalide et chaque frappe cocherait la série). ---------- */
 function AccessorySetRow({ index, targetReps, checked, accent, perf, last, onToggle, onPerf }) {
   const a = ACC[accent];
-  const w = perf && perf.w != null ? perf.w : '';
-  const r = perf && perf.r != null ? perf.r : '';
-  const beat = last && perf && perf.w != null && perf.r != null &&
-    (perf.w > last.w || (perf.w === last.w && perf.r > last.r));
+  const cur = normPerf(perf);
+  // Rien de saisi ? On pré-remplit avec la dernière fois — et c'est cette
+  // valeur-là qui sera enregistrée si tu valides sans rien toucher.
+  const carriedW = cur.w == null && last && last.w != null;
+  const carriedR = cur.r == null && last && last.r != null;
+  const effW = cur.w != null ? cur.w : carriedW ? last.w : null;
+  const effR = cur.r != null ? cur.r : carriedR ? last.r : null;
+  // Pendant la saisie on n'affiche que ce que TU as tapé (sinon effacer le
+  // champ ferait réapparaître la valeur reprise et rendrait la frappe
+  // impossible) ; la valeur de la dernière fois reste en repère grisé.
+  const [editW, setEditW] = useState(false);
+  const [editR, setEditR] = useState(false);
+  const w = editW ? (cur.w != null ? cur.w : '') : effW != null ? effW : '';
+  const r = editR ? (cur.r != null ? cur.r : '') : effR != null ? effR : '';
+  const phW = last && last.w != null ? String(last.w) : '—';
+  const phR = last && last.r != null ? String(last.r) : '—';
+  const beat = last && last.w != null && last.r != null && effW != null && effR != null &&
+    (effW > last.w || (effW === last.w && effR > last.r));
 
   return (
     <div
@@ -959,8 +1011,10 @@ function AccessorySetRow({ index, targetReps, checked, accent, perf, last, onTog
           <input
             type="number" inputMode="decimal" step="0.5" value={w}
             onChange={(e) => onPerf('w', e.target.value === '' ? null : Math.max(0, parseFloat(e.target.value) || 0))}
-            placeholder={last ? String(last.w) : '—'}
-            className={`w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-3 pr-8 text-center font-display text-lg outline-none focus:border-white/40 ${a.text}`}
+            onFocus={() => setEditW(true)}
+            onBlur={() => setEditW(false)}
+            placeholder={phW}
+            className={`w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-3 pr-8 text-center font-display text-lg outline-none focus:border-white/40 ${carriedW ? 'text-white/45' : a.text}`}
           />
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-white/30">KG</span>
         </div>
@@ -971,8 +1025,10 @@ function AccessorySetRow({ index, targetReps, checked, accent, perf, last, onTog
           <input
             type="number" inputMode="numeric" value={r}
             onChange={(e) => onPerf('r', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0))}
-            placeholder={last ? String(last.r) : '—'}
-            className="w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-2 pr-9 text-center font-display text-lg text-white/90 outline-none focus:border-white/40"
+            onFocus={() => setEditR(true)}
+            onBlur={() => setEditR(false)}
+            placeholder={phR}
+            className={`w-full rounded-xl border border-white/12 bg-white/[.05] py-2.5 pl-2 pr-9 text-center font-display text-lg outline-none focus:border-white/40 ${carriedR ? 'text-white/45' : 'text-white/90'}`}
           />
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-white/30">REPS</span>
         </div>
@@ -984,7 +1040,7 @@ function AccessorySetRow({ index, targetReps, checked, accent, perf, last, onTog
         </span>
         {last ? (
           <span className={`text-[9px] font-black uppercase tracking-wider ${beat ? 'text-lime2' : 'text-white/35'}`}>
-            {beat ? '▲ mieux que ' : 'dernière : '}{fmtKg(last.w)} kg × {last.r}
+            {beat ? '▲ mieux que ' : 'dernière : '}{fmtPerf(last)}
           </span>
         ) : (
           <span className="text-[9px] font-black uppercase tracking-wider text-white/20">1re fois</span>
@@ -1345,7 +1401,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
               Dernière séance ({new Date(lastPerf.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}) — à battre
             </p>
             <p className="mt-0.5 text-[12px] font-extrabold text-white/75">
-              {lastPerf.sets.map((s, k) => (s && (s.w || s.r) ? `${fmtKg(s.w || 0)}×${s.r || 0}` : '—')).join('  ·  ')}
+              {lastPerf.sets.map((s) => fmtPerf(s)).join('  ·  ')}
             </p>
           </div>
         )}
@@ -1404,8 +1460,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
             };
 
             if (!isForce) {
-              const lastSet = lastPerf && lastPerf.sets ? lastPerf.sets[i] : null;
-              const validLast = lastSet && (lastSet.w || lastSet.r) ? lastSet : null;
+              const validLast = lastSetFor(lastPerf, i);
               return (
                 <AccessorySetRow
                   key={key}
@@ -1417,12 +1472,13 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
                   last={validLast}
                   onPerf={(field, value) => setPerf(dayKey, ex.name, i, field, value)}
                   onToggle={() => {
-                    // Valider sans rien saisir reprend la perf précédente :
-                    // on suppose la même charge tant que rien n'est modifié.
-                    const cur = perfToday[i] || {};
-                    if (!checked && validLast && cur.w == null && cur.r == null) {
-                      setPerf(dayKey, ex.name, i, 'w', validLast.w);
-                      setPerf(dayKey, ex.name, i, 'r', validLast.r);
+                    // Valider reprend la perf précédente pour tout champ laissé
+                    // vide : la charge de la dernière fois est enregistrée telle
+                    // quelle, champ par champ, jamais un trou dans l'historique.
+                    const cur = normPerf(perfToday[i]);
+                    if (!checked && validLast) {
+                      if (cur.w == null && validLast.w != null) setPerf(dayKey, ex.name, i, 'w', validLast.w);
+                      if (cur.r == null && validLast.r != null) setPerf(dayKey, ex.name, i, 'r', validLast.r);
                     }
                     toggle();
                   }}
@@ -1680,12 +1736,17 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
         const rm = Number(state.profile[ex.lift] || 0);
         sets = rm ? forcePcts(ex, cyc).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
       } else {
-        // Le tonnage des accessoires vient des charges réellement saisies
+        // Le tonnage des accessoires vient des charges réellement saisies,
+        // complétées par celles reprises de la dernière séance.
         const perf = (state.perfLog && state.perfLog[dKey] && state.perfLog[dKey][ex.name]) || [];
-        sets = Array.from({ length: ex.sets || 3 }, (_, i) => ({
-          w: (perf[i] && perf[i].w) || 0,
-          r: (perf[i] && perf[i].r) || 0,
-        }));
+        sets = Array.from({ length: ex.sets || 3 }, (_, i) => {
+          const cur = normPerf(perf[i]);
+          const prev = lastSetFor(lastPerfMap[ex.name], i);
+          return {
+            w: (cur.w != null ? cur.w : prev && prev.w != null ? prev.w : 0),
+            r: (cur.r != null ? cur.r : prev && prev.r != null ? prev.r : 0),
+          };
+        });
       }
       sets.forEach((s, i) => {
         total++;
@@ -1693,7 +1754,7 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
       });
     });
     return { total, done, tonnage };
-  }, [state, dKey, session, cyc, exList]);
+  }, [state, dKey, session, cyc, exList, lastPerfMap]);
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
@@ -2885,8 +2946,9 @@ function App() {
       const log = { ...(s.perfLog || {}) };
       const day = { ...(log[dayKey] || {}) };
       const sets = (day[exName] || []).slice();
-      while (sets.length <= setIdx) sets.push({});
-      sets[setIdx] = { ...sets[setIdx], [field]: value };
+      while (sets.length <= setIdx) sets.push({ w: null, r: null });
+      const clean = typeof value === 'number' && isFinite(value) ? value : null;
+      sets[setIdx] = { ...normPerf(sets[setIdx]), [field]: clean };
       day[exName] = sets;
       log[dayKey] = day;
 
