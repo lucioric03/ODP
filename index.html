@@ -426,6 +426,54 @@ function mmss(sec) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// Chrono de séance : 754 → "12:34" · 3725 → "1:02:05"
+function hms(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const p = (n) => String(n).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  return h ? `${h}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}` : `${p(Math.floor(s / 60))}:${p(s % 60)}`;
+}
+
+// Durée lisible : 45 → "45 s" · 754 → "13 min" · 3725 → "1 h 02"
+function fmtDur(sec) {
+  const s = Math.max(0, Math.round(sec));
+  if (s < 60) return `${s} s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.round((s % 3600) / 60);
+  return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
+}
+
+/* ---------- Durée de la dernière séance du même jour de la semaine.
+     Sert de repère : « 58 min — la semaine dernière 1 h 04 ». ---------- */
+function lastSessionDur(sessions, beforeKey) {
+  const dow = dowOfKey(beforeKey);
+  let out = null;
+  Object.keys(sessions || {})
+    .filter((d) => d < beforeKey && dowOfKey(d) === dow)
+    .sort()
+    .forEach((d) => {
+      const s = sessions[d];
+      if (s && s.start && s.end && s.end > s.start) out = { date: d, sec: (s.end - s.start) / 1000 };
+    });
+  return out;
+}
+
+/* ---------- Bilan d'un exercice : volume (charge × reps) du jour face au
+     même jour de la semaine précédent. Sans charge saisie (poids de corps),
+     on compare le nombre de répétitions. ---------- */
+function perfTotals(sets) {
+  let vol = 0, reps = 0, best = null;
+  (sets || []).forEach((raw) => {
+    const n = normPerf(raw);
+    if (n.r != null) reps += n.r;
+    if (n.w != null && n.r != null) {
+      vol += n.w * n.r;
+      if (!best || n.w > best.w || (n.w === best.w && n.r > best.r)) best = n;
+    }
+  });
+  return { vol, reps, best };
+}
+
 /* ---------- Moteur de records ----------
    Epley : 1RM = charge × (1 + reps / 30). Exact à 1 rep, fiable jusqu'à ~10.
    Au-delà, l'estimation dérive : on prévient l'utilisateur au lieu de mentir. */
@@ -783,6 +831,7 @@ const DEFAULT_STATE = {
   restOverrides: {},  // { "Nom de l'exercice": secondes }
   dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
+  sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
   nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
 };
 
@@ -815,6 +864,7 @@ function loadState() {
       restOverrides: parsed.restOverrides || {},
       dayPlans: parsed.dayPlans || {},
       perfLog: parsed.perfLog || {},
+      sessions: parsed.sessions || {},
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
@@ -1846,7 +1896,7 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOverride, setDayPlan, setPerf, goProfile }) {
+function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR, setRestOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
@@ -1903,6 +1953,59 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
+
+  /* ---------- Chrono de séance ---------- */
+  const sess = (state.sessions && state.sessions[dKey]) || null;
+  const running = !!(sess && sess.start && !sess.end);
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => {
+    if (!running) return;
+    setClockNow(Date.now());
+    const id = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [running, sess && sess.start]);
+
+  const elapsed = sess && sess.start ? Math.max(0, ((sess.end || clockNow) - sess.start) / 1000) : 0;
+  const prevDur = useMemo(() => lastSessionDur(state.sessions, dKey), [state.sessions, dKey]);
+
+  // La dernière série cochée arrête le chrono ; décocher le relance.
+  useEffect(() => {
+    if (!sess || !sess.start) return;
+    if (allDone && !sess.end) setSession(dKey, 'stop');
+    else if (!allDone && sess.end) setSession(dKey, 'resume');
+  }, [allDone, sess, dKey, setSession]);
+
+  /* ---------- Bilan de fin de séance : progrès et reculs, exercice par
+       exercice, face au même jour de la semaine précédent. ---------- */
+  const bilan = useMemo(() => {
+    if (session.off) return [];
+    const today = (state.perfLog && state.perfLog[dKey]) || {};
+    const rows = [];
+    exList.forEach((ex) => {
+      if (ex.kind === 'force') return;         // charges pilotées par le cycle
+      const t = perfTotals(today[ex.name]);
+      const prevRef = lastPerfMap[ex.name];
+      const p = prevRef ? perfTotals(prevRef.sets) : null;
+      const useVol = t.vol > 0 || (p && p.vol > 0);
+      const tv = useVol ? t.vol : t.reps;
+      const pv = p ? (useVol ? p.vol : p.reps) : null;
+      if (!tv && !pv) return;                  // exercice jamais renseigné
+      const delta = pv ? (tv - pv) / pv : null;
+      rows.push({
+        name: ex.name,
+        unit: useVol ? 'kg' : 'reps',
+        tv, pv, delta,
+        best: t.best, prevBest: p ? p.best : null,
+        dir: pv == null ? 'new' : delta > 0.01 ? 'up' : delta < -0.01 ? 'down' : 'same',
+      });
+    });
+    const order = { up: 0, down: 1, same: 2, new: 3 };
+    rows.sort((x, y) => order[x.dir] - order[y.dir] || y.tv - x.tv);
+    return rows;
+  }, [state.perfLog, dKey, exList, lastPerfMap, session]);
+
+  const nUp = bilan.filter((r) => r.dir === 'up').length;
+  const nDown = bilan.filter((r) => r.dir === 'down').length;
 
   return (
     <div className="space-y-4">
@@ -1963,6 +2066,43 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
                   Tonnage soulevé : <b className="text-white/75">{Math.round(stats.tonnage).toLocaleString('fr-FR')} kg</b>
                 </p>
               )}
+
+              {/* Chrono de séance */}
+              <div className="mt-3 flex items-center gap-2">
+                {!sess || !sess.start ? (
+                  <button
+                    onClick={() => setSession(dKey, 'start')}
+                    className="press flex-1 rounded-2xl grad-lime py-3 font-display text-xs uppercase tracking-wider text-ink"
+                    style={{ boxShadow: '0 8px 26px -10px #39FF14' }}
+                  >
+                    ▶ Démarrer la séance
+                  </button>
+                ) : (
+                  <>
+                    <div className={`flex flex-1 items-center gap-2 rounded-2xl border px-3 py-2.5 ${
+                      running ? 'border-lime2/40 bg-lime2/[.08]' : 'border-white/12 bg-white/[.04]'
+                    }`}>
+                      <span className="text-base">⏱</span>
+                      <span className={`font-display text-xl leading-none ${running ? 'text-lime2' : 'text-white/70'}`}>
+                        {hms(elapsed)}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-white/35">
+                        {running ? 'en cours' : 'terminée'}
+                      </span>
+                    </div>
+                    {running && (
+                      <button
+                        onClick={() => setSession(dKey, 'stop')}
+                        className="press shrink-0 rounded-2xl border border-white/15 bg-white/[.06] px-3 py-2.5 font-display text-[11px] text-white/70"
+                      >⏹ Fin</button>
+                    )}
+                    <button
+                      onClick={() => setSession(dKey, 'reset')}
+                      className="press shrink-0 rounded-2xl border border-white/15 bg-white/[.06] px-3 py-2.5 font-display text-[11px] text-white/45"
+                    >↺</button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1989,12 +2129,72 @@ function TodayView({ state, setState, toggleSet, startTimer, openPR, setRestOver
       ) : (
         <>
           {allDone && (
-            <Card accent="lime" glow className="pop p-5 text-center">
-              <div className="text-4xl">🏆</div>
-              <h3 className="mt-1 font-display text-xl text-lime2 text-glow-lime">SÉANCE TERMINÉE</h3>
-              <p className="mt-1 text-xs font-bold text-white/50">
-                {Math.round(stats.tonnage).toLocaleString('fr-FR')} kg déplacés. Everybody wanna be a bodybuilder…
-              </p>
+            <Card accent="lime" glow className="pop p-5">
+              <div className="text-center">
+                <div className="text-4xl">🏆</div>
+                <h3 className="mt-1 font-display text-xl text-lime2 text-glow-lime">SÉANCE TERMINÉE</h3>
+                <p className="mt-1 text-xs font-bold text-white/50">
+                  {Math.round(stats.tonnage).toLocaleString('fr-FR')} kg déplacés. Everybody wanna be a bodybuilder…
+                </p>
+              </div>
+
+              {/* Durée & bilan chiffré */}
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-white/12 bg-white/[.04] p-3 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-white/40">Durée</p>
+                  <p className="font-display text-2xl leading-tight text-white">
+                    {elapsed > 0 ? fmtDur(elapsed) : '—'}
+                  </p>
+                  <p className="text-[10px] font-bold text-white/35">
+                    {prevDur
+                      ? `dernière fois ${fmtDur(prevDur.sec)}`
+                      : elapsed > 0 ? 'premier chrono de ce jour' : 'chrono non lancé'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/12 bg-white/[.04] p-3 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-white/40">Par rapport à la dernière fois</p>
+                  <p className="font-display text-2xl leading-tight">
+                    <span className="text-lime2">{nUp}▲</span>
+                    <span className="mx-1 text-white/20">·</span>
+                    <span className="text-neon">{nDown}▼</span>
+                  </p>
+                  <p className="text-[10px] font-bold text-white/35">
+                    {nUp || nDown ? `${nUp} en progrès · ${nDown} en baisse` : 'aucune comparaison'}
+                  </p>
+                </div>
+              </div>
+
+              {bilan.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {bilan.map((r) => {
+                    const col = r.dir === 'up' ? 'text-lime2' : r.dir === 'down' ? 'text-neon' : 'text-white/45';
+                    const icon = r.dir === 'up' ? '▲' : r.dir === 'down' ? '▼' : r.dir === 'same' ? '=' : '✦';
+                    const val = (v) => (r.unit === 'kg' ? `${Math.round(v).toLocaleString('fr-FR')} kg` : `${v} reps`);
+                    return (
+                      <div key={r.name} className="flex items-center gap-2.5 rounded-2xl border border-white/[.08] bg-white/[.03] p-2.5">
+                        <span className={`shrink-0 font-display text-sm ${col}`}>{icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12px] font-extrabold text-white/85">{r.name}</p>
+                          <p className="truncate text-[10px] font-bold text-white/40">
+                            {val(r.tv)}
+                            {r.pv != null ? ` · avant ${val(r.pv)}` : ' · première fois ce jour-là'}
+                            {r.best ? ` · top ${fmtPerf(r.best)}` : ''}
+                          </p>
+                        </div>
+                        {r.delta != null && (
+                          <span className={`shrink-0 font-display text-[13px] ${col}`}>
+                            {r.delta > 0 ? '+' : ''}{Math.round(r.delta * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <p className="px-1 pt-1 text-[10px] font-semibold leading-relaxed text-white/30">
+                    Comparaison du volume (charge × reps) avec le même jour de la semaine précédent.
+                    Les mouvements de force ne sont pas listés : leurs charges suivent le cycle.
+                  </p>
+                </div>
+              )}
             </Card>
           )}
 
@@ -3036,7 +3236,37 @@ function App() {
     setState((s) => {
       const day = { ...(s.logs[dayKey] || {}) };
       if (checked) day[key] = true; else delete day[key];
-      return { ...s, logs: { ...s.logs, [dayKey]: day } };
+      const next = { ...s, logs: { ...s.logs, [dayKey]: day } };
+      // Filet de sécurité : valider une série sans avoir appuyé sur DÉMARRER
+      // lance quand même le chrono, sinon la durée serait perdue.
+      const sess = (s.sessions || {})[dayKey];
+      if (checked && (!sess || !sess.start)) {
+        next.sessions = { ...(s.sessions || {}), [dayKey]: { start: Date.now(), end: null } };
+      }
+      return next;
+    });
+  }, []);
+
+  /* ---------- Chrono de séance : start / stop / resume / reset ---------- */
+  const setSession = useCallback((dayKey, action) => {
+    setState((s) => {
+      const all = { ...(s.sessions || {}) };
+      const cur = all[dayKey];
+      if (action === 'start') all[dayKey] = { start: Date.now(), end: null };
+      else if (action === 'stop') {
+        if (!cur || !cur.start || cur.end) return s;
+        all[dayKey] = { ...cur, end: Date.now() };
+      } else if (action === 'resume') {
+        if (!cur || !cur.end) return s;
+        all[dayKey] = { ...cur, end: null };
+      } else if (action === 'reset') {
+        if (!cur) return s;
+        delete all[dayKey];
+      } else return s;
+
+      const keys = Object.keys(all).sort();
+      if (keys.length > 90) keys.slice(0, keys.length - 90).forEach((k) => delete all[k]);
+      return { ...s, sessions: all };
     });
   }, []);
 
@@ -3167,6 +3397,7 @@ function App() {
           state={state}
           setState={setState}
           toggleSet={toggleSet}
+          setSession={setSession}
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
           setRestOverride={setRestOverride}
