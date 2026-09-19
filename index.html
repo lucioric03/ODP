@@ -756,6 +756,21 @@ function fmtDur(sec) {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
 
+/* ---------- Séances loupées dans la semaine civile (lundi → dimanche) qui
+     contient cette date. Une seule ne change rien au programme ; à partir de
+     deux, la semaine de cycle doit être refaite avant d'avancer. ---------- */
+function missedInWeekOf(missed, key) {
+  const d = new Date(`${key}T12:00:00`);
+  if (isNaN(d.getTime())) return [];
+  const cur = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + (cur === 0 ? -6 : 1 - cur));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const from = dateKey(monday), to = dateKey(sunday);
+  return Object.keys(missed || {}).filter((k) => missed[k] && k >= from && k <= to).sort();
+}
+
 /* ---------- Durée de la dernière séance du même jour de la semaine.
      Sert de repère : « 58 min — la semaine dernière 1 h 04 ». ---------- */
 function lastSessionDur(sessions, beforeKey) {
@@ -1147,6 +1162,7 @@ const DEFAULT_STATE = {
   programVersion: PROGRAM_VERSION,
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
+  missed: {},         // { 'YYYY-MM-DD': true } — séances déclarées loupées
   nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
 };
 
@@ -1210,6 +1226,7 @@ function loadState() {
       programVersion: PROGRAM_VERSION,
       perfLog: parsed.perfLog || {},
       sessions: parsed.sessions || {},
+      missed: parsed.missed || {},
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
@@ -2433,7 +2450,7 @@ function RunCard({ type, sess, paces, dayKey, logs, toggleSet, goProfile, profil
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
+function TodayView({ state, setState, toggleSet, setSession, setMissed, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
@@ -2561,6 +2578,12 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
     rows.sort((x, y) => order[x.dir] - order[y.dir] || y.tv - x.tv);
     return rows;
   }, [state.perfLog, state.setsOverrides, dKey, dow, cyc, exList, lastPerfMap, session]);
+
+  /* ---------- Séance loupée ---------- */
+  const isMissed = !!(state.missed && state.missed[dKey]);
+  const missedWeek = useMemo(() => missedInWeekOf(state.missed, dKey), [state.missed, dKey]);
+  const tooManyMissed = missedWeek.length >= 2;
+  const nothingDone = (isRun ? (runStats ? runStats.done : 0) : stats.done) === 0;
 
   const nUp = bilan.filter((r) => r.dir === 'up').length;
   const nDown = bilan.filter((r) => r.dir === 'down').length;
@@ -2710,6 +2733,63 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
             );
           })}
         </div>
+      )}
+
+      {/* Séance loupée : que faire ensuite */}
+      {!session.off && (isMissed || nothingDone) && (
+        isMissed ? (
+          <Card accent={tooManyMissed ? 'pink' : 'viol'} className="rise p-4">
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-2xl">{tooManyMissed ? '⚠️' : '😕'}</span>
+              <div className="min-w-0 flex-1">
+                <p className={`font-display text-sm uppercase ${tooManyMissed ? 'text-neon' : 'text-viol'}`}>
+                  Séance déclarée loupée
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-white/35">
+                  {missedWeek.length} cette semaine
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 rounded-2xl border border-white/[.08] bg-white/[.03] p-3 text-[11px] font-medium leading-relaxed text-white/60">
+              {tooManyMissed ? (
+                <>
+                  <b className="text-neon">Refais cette semaine de cycle avant d'avancer.</b> Deux séances
+                  manquées dans la même semaine, c'est un bloc incomplet : passer à la semaine suivante
+                  te ferait monter en intensité sur un travail que tu n'as pas fait. Dans Profil, n'appuie
+                  pas sur « Semaine suivante » et refais la semaine {state.week}.
+                </>
+              ) : isRun ? (
+                <>
+                  <b className="text-white/85">Continue normalement, ne rattrape pas.</b> Une sortie
+                  loupée ne se double jamais sur la suivante : tu prendrais le risque d'une blessure pour
+                  un gain nul. Reprends simplement au programme du jour.
+                </>
+              ) : (
+                <>
+                  <b className="text-white/85">Continue normalement, ne change rien.</b> Tes charges de
+                  force sont un pourcentage de ton 1RM, pas la suite de la séance précédente : une séance
+                  sautée ne coûte rien, tu reviendras même plus frais. Les accessoires reprendront tout
+                  seuls les charges de ta dernière séance de ce jour, même si elle date de deux semaines.
+                </>
+              )}
+            </p>
+
+            <button
+              onClick={() => setMissed(dKey, false)}
+              className="press mt-2 w-full rounded-2xl border border-white/15 bg-white/[.05] py-2.5 font-display text-[11px] uppercase tracking-wider text-white/55"
+            >
+              ↺ Finalement je la fais
+            </button>
+          </Card>
+        ) : (
+          <button
+            onClick={() => setMissed(dKey, true)}
+            className="press w-full rounded-2xl border border-dashed border-white/15 py-3 text-[11px] font-black uppercase tracking-wider text-white/35"
+          >
+            😕 Séance loupée — que faire ?
+          </button>
+        )
       )}
 
       {/* Jour OFF */}
@@ -3141,6 +3221,7 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
     setState((s) => ({ ...s, profile: { ...s.profile, [id]: val } }));
 
   const total = LIFTS.slice(0, 3).reduce((acc, l) => acc + (Number(state.profile[l.id]) || 0), 0);
+  const missedWeek = missedInWeekOf(state.missed, dateKey());
 
   const exportData = () => {
     // Le son perso vit dans une clé séparée : on le rapatrie pour une sauvegarde complète
@@ -3333,6 +3414,13 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
           <b className={ACC[CYCLE[state.week].accent].text}>Semaine {state.week} — {CYCLE[state.week].name}.</b>{' '}
           {CYCLE[state.week].rpe} Repos entre séries lourdes : <b className="text-white/80">{Math.floor(CYCLE[state.week].rest / 60)} min</b>.
         </p>
+        {missedWeek.length >= 2 && (
+          <p className="mt-3 rounded-2xl border border-neon/40 bg-neon/[.08] p-3 text-[11px] font-semibold leading-relaxed text-white/65">
+            ⚠️ <b className="text-neon">{missedWeek.length} séances loupées cette semaine.</b> Refais la
+            semaine {state.week} avant d'avancer : monter en intensité sur un bloc incomplet, c'est
+            acheter une blessure. Une seule séance loupée ne change rien, deux si.
+          </p>
+        )}
         {state.week < 4 && (
           <div className="mt-3">
             <GhostButton accent="viol" className="w-full" onClick={() => setState((s) => ({ ...s, week: s.week + 1 }))}>
@@ -3979,6 +4067,17 @@ function App() {
     });
   }, []);
 
+  // Séance déclarée loupée (ou annulation du marquage)
+  const setMissed = useCallback((dayKey, val) => {
+    setState((s) => {
+      const next = { ...(s.missed || {}) };
+      if (val) next[dayKey] = true; else delete next[dayKey];
+      const keys = Object.keys(next).sort();
+      if (keys.length > 90) keys.slice(0, keys.length - 90).forEach((k) => delete next[k]);
+      return { ...s, missed: next };
+    });
+  }, []);
+
   /* ---------- Chrono de séance : start / stop / resume / reset ---------- */
   const setSession = useCallback((dayKey, action) => {
     setState((s) => {
@@ -4141,6 +4240,7 @@ function App() {
           setState={setState}
           toggleSet={toggleSet}
           setSession={setSession}
+          setMissed={setMissed}
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
           setRestOverride={setRestOverride}
