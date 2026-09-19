@@ -829,6 +829,7 @@ const DEFAULT_STATE = {
   logs: {},   // { 'YYYY-MM-DD': { '0|2': true, ... } }
   prs: [],    // [{ id, lift, weight, reps, e1rm, prev, date, kind }]
   restOverrides: {},  // { "Nom de l'exercice": secondes }
+  setsOverrides: {},  // { "<jour>|Nom de l'exercice": nombre de séries }
   dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
@@ -836,10 +837,34 @@ const DEFAULT_STATE = {
 };
 
 /* ---------- Séries de force : un exercice peut en demander moins que le cycle.
-     On conserve alors les plus LOURDES (fin de la montée en charge). ---------- */
-function forcePcts(ex, cyc) {
-  const n = ex && ex.forceSets;
-  return n && n < cyc.pct.length ? cyc.pct.slice(cyc.pct.length - n) : cyc.pct;
+     On conserve alors les plus LOURDES (fin de la montée en charge). Au-delà
+     du cycle, la dernière charge est répétée. ---------- */
+function forcePcts(ex, cyc, count) {
+  const base = cyc.pct;
+  const n = count != null ? count : (ex && ex.forceSets);
+  if (!n || n === base.length) return base;
+  if (n < base.length) return base.slice(base.length - n);
+  const out = base.slice();
+  while (out.length < n) out.push(base[base.length - 1]);
+  return out;
+}
+
+/* ---------- Nombre de séries : réglage perso, sinon le programme.
+     La clé porte le jour de la semaine — le même exercice peut demander
+     3 séries le lundi et 5 le samedi, comme les charges. ---------- */
+const MAX_SETS = 8;
+
+function setsKeyOf(dow, name) { return `${dow}|${name}`; }
+
+function setsOverrideOf(ex, dow, overrides) {
+  const n = Number(overrides && overrides[setsKeyOf(dow, ex.name)]);
+  return n >= 1 && n <= MAX_SETS ? Math.round(n) : null;
+}
+
+function setsCountFor(ex, dow, overrides, cyc) {
+  const o = setsOverrideOf(ex, dow, overrides);
+  if (o) return o;
+  return ex.kind === 'force' ? forcePcts(ex, cyc).length : (ex.sets || 3);
 }
 
 /* ---------- Repos effectif : surcharge utilisateur > `rest` de l'exercice > défaut ---------- */
@@ -862,6 +887,7 @@ function loadState() {
       logs: parsed.logs || {},
       prs: Array.isArray(parsed.prs) ? parsed.prs : [],
       restOverrides: parsed.restOverrides || {},
+      setsOverrides: parsed.setsOverrides || {},
       dayPlans: parsed.dayPlans || {},
       perfLog: parsed.perfLog || {},
       sessions: parsed.sessions || {},
@@ -1438,9 +1464,10 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setPerf, lastPerf, delay }) {
+function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, lastPerf, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
   const [editRest, setEditRest] = useState(false);
+  const [editSets, setEditSets] = useState(false);
   const week = state.week;
   const cyc = CYCLE[week];
   const isForce = ex.kind === 'force';
@@ -1449,17 +1476,22 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
   const accent = isForce ? lift.accent : (ex.kind === 'isolation' ? 'cyan' : ex.kind === 'sprint' ? 'lime' : 'viol');
   const a = ACC[accent];
 
+  // Nombre de séries : réglage perso de ce jour de la semaine, sinon programme
+  const dow = dowOfKey(dayKey);
+  const customSets = setsOverrideOf(ex, dow, state.setsOverrides);
+  const defaultSets = isForce ? forcePcts(ex, cyc).length : (ex.sets || 3);
+  const setCount = customSets || defaultSets;
+
   // Construction des séries
-  const pcts = isForce ? forcePcts(ex, cyc) : null;
+  const pcts = isForce ? forcePcts(ex, cyc, customSets) : null;
 
   const sets = useMemo(() => {
     if (isForce) {
       if (!oneRM) return [];
       return pcts.map((p) => ({ weight: round2_5((oneRM * p) / 100), reps: cyc.reps, pct: p }));
     }
-    const n = ex.sets || 3;
-    return Array.from({ length: n }, () => ({ weight: null, reps: ex.reps, pct: null }));
-  }, [isForce, oneRM, week, ex]);
+    return Array.from({ length: setCount }, () => ({ weight: null, reps: ex.reps, pct: null }));
+  }, [isForce, oneRM, week, ex, setCount]);
 
   // Superset : le 1er exercice s'enchaîne sans repos, le repos vient après la paire.
   // Le partenaire est déterminé à l'affichage, donc résistant à toute réorganisation.
@@ -1526,6 +1558,15 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
               <span className="ml-1 text-white/30">✎</span>
             </button>
           )}
+          <button
+            onClick={() => setEditSets((v) => !v)}
+            className={`press rounded-lg border px-2 py-1 text-[11px] font-bold transition-colors ${
+              customSets ? 'border-cyan2/40 bg-cyan2/[.08] text-cyan2' : 'border-white/12 bg-white/[.04] text-white/55'
+            }`}
+          >
+            🔢 Séries <b className={customSets ? 'text-cyan2' : 'text-white/85'}>{setCount}</b>
+            <span className="ml-1 text-white/30">✎</span>
+          </button>
           {isForce && (
             <>
               <span className="text-white/20">|</span>
@@ -1533,6 +1574,41 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
             </>
           )}
         </div>
+
+        {/* Réglage du nombre de séries — mémorisé pour ce jour de la semaine */}
+        {editSets && (
+          <div className="mt-2 rounded-2xl border border-white/12 bg-white/[.04] p-3">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-white/45">
+              Nombre de séries — {ex.name}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: MAX_SETS }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSetsOverride(dow, ex.name, n)}
+                  className={`press flex-1 rounded-lg border py-2 font-display text-[12px] transition-all ${
+                    setCount === n ? `${a.grad} border-transparent text-ink` : 'border-white/12 bg-white/[.04] text-white/55'
+                  }`}
+                  style={{ minWidth: '38px' }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setSetsOverride(dow, ex.name, null)}
+              disabled={!customSets}
+              className="press mt-2 w-full rounded-lg border border-white/12 bg-white/[.04] py-2 text-[11px] font-black text-white/60 disabled:opacity-30"
+            >
+              ↺ Défaut du programme ({defaultSets})
+            </button>
+            <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/35">
+              {isForce
+                ? 'Mouvement de force : on garde les séries les plus lourdes du cycle. Au-delà de ce que prévoit la semaine, la charge la plus lourde est répétée.'
+                : 'Mémorisé pour ce jour de la semaine seulement — le même exercice garde son propre compte les autres jours.'}
+            </p>
+          </div>
+        )}
 
         {/* Réglage du temps de repos — mémorisé pour les séances suivantes */}
         {editRest && restSec > 0 && (
@@ -1582,7 +1658,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
           <div className="mt-3 rounded-2xl border border-white/12 bg-white/[.05] p-3">
             <p className="text-[9px] font-black uppercase tracking-wider text-white/40">Ce que tu dois faire</p>
             <p className="mt-0.5 font-display text-base leading-tight text-white">
-              {sets.length} séries × {cyc.reps} rep{cyc.reps > 1 ? 's' : ''}
+              {sets.length} série{sets.length > 1 ? 's' : ''} × {cyc.reps} rep{cyc.reps > 1 ? 's' : ''}
             </p>
             <p className={`mt-0.5 font-display text-lg leading-tight ${a.text}`}>
               {sets.map((s) => fmtKg(s.weight)).join(' · ')} <span className="text-xs text-white/40">KG</span>
@@ -1840,7 +1916,9 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
                     {ex.ss && <span className="mr-1 text-lime2">🔗</span>}{name}
                   </p>
                   <p className="text-[10px] font-bold text-white/35">
-                    {isForce ? 'Mouvement principal' : `${ex.sets}×${ex.reps}`}
+                    {isForce
+                      ? 'Mouvement principal'
+                      : `${setsCountFor(ex, dow, state.setsOverrides, CYCLE[state.week])}×${ex.reps}`}
                   </p>
                 </div>
 
@@ -1896,7 +1974,7 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR, setRestOverride, setDayPlan, setPerf, goProfile }) {
+function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
@@ -1929,12 +2007,12 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
       let sets = [];
       if (ex.kind === 'force') {
         const rm = Number(state.profile[ex.lift] || 0);
-        sets = rm ? forcePcts(ex, cyc).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
+        sets = rm ? forcePcts(ex, cyc, setsOverrideOf(ex, dow, state.setsOverrides)).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
       } else {
         // Le tonnage des accessoires vient des charges réellement saisies,
         // complétées par celles reprises de la dernière séance.
         const perf = (state.perfLog && state.perfLog[dKey] && state.perfLog[dKey][ex.name]) || [];
-        sets = Array.from({ length: ex.sets || 3 }, (_, i) => {
+        sets = Array.from({ length: setsCountFor(ex, dow, state.setsOverrides, cyc) }, (_, i) => {
           const cur = normPerf(perf[i]);
           const prev = lastSetFor(lastPerfMap[ex.name], i);
           return {
@@ -1949,7 +2027,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
       });
     });
     return { total, done, tonnage };
-  }, [state, dKey, session, cyc, exList, lastPerfMap]);
+  }, [state, dKey, dow, session, cyc, exList, lastPerfMap]);
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
@@ -1983,7 +2061,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
     const rows = [];
     exList.forEach((ex) => {
       if (ex.kind === 'force') return;         // charges pilotées par le cycle
-      const t = perfTotals(today[ex.name]);
+      const t = perfTotals((today[ex.name] || []).slice(0, setsCountFor(ex, dow, state.setsOverrides, cyc)));
       const prevRef = lastPerfMap[ex.name];
       const p = prevRef ? perfTotals(prevRef.sets) : null;
       const useVol = t.vol > 0 || (p && p.vol > 0);
@@ -2002,7 +2080,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
     const order = { up: 0, down: 1, same: 2, new: 3 };
     rows.sort((x, y) => order[x.dir] - order[y.dir] || y.tv - x.tv);
     return rows;
-  }, [state.perfLog, dKey, exList, lastPerfMap, session]);
+  }, [state.perfLog, state.setsOverrides, dKey, dow, cyc, exList, lastPerfMap, session]);
 
   const nUp = bilan.filter((r) => r.dir === 'up').length;
   const nDown = bilan.filter((r) => r.dir === 'down').length;
@@ -2224,6 +2302,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
               startTimer={startTimer}
               openPR={openPR}
               setRestOverride={setRestOverride}
+              setSetsOverride={setSetsOverride}
               setPerf={setPerf}
               lastPerf={lastPerfMap[ex.name]}
               delay={i * 55}
@@ -2315,7 +2394,7 @@ function ProgramView({ state }) {
                   const isForce = ex.kind === 'force';
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
-                  const pcts = isForce ? forcePcts(ex, cyc) : null;
+                  const pcts = isForce ? forcePcts(ex, cyc, setsOverrideOf(ex, d, state.setsOverrides)) : null;
                   const ssNext = ssPartnerAt(exercisesFor(d, state), i);
                   const restSec = ssNext ? 0 : restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
                   return (
@@ -2328,7 +2407,7 @@ function ProgramView({ state }) {
                         <p className="text-[10px] font-bold text-white/35">
                           {isForce
                             ? `${pcts.length}×${cyc.reps} · ${cyc.tag.split(' @ ')[1]}`
-                            : `${ex.sets}×${ex.reps}`}
+                            : `${setsCountFor(ex, d, state.setsOverrides, cyc)}×${ex.reps}`}
                           {ssNext ? ' · enchaîné' : restSec ? ` · repos ${fmtRest(restSec)}` : ''}
                         </p>
                       </div>
@@ -3362,6 +3441,17 @@ function App() {
   }, []);
 
   // Temps de repos personnalisé, mémorisé par nom d'exercice (null = retour au défaut)
+  // Nombre de séries personnalisé, par jour de la semaine (null = défaut)
+  const setSetsOverride = useCallback((dow, name, count) => {
+    setState((s) => {
+      const next = { ...(s.setsOverrides || {}) };
+      const k = setsKeyOf(dow, name);
+      if (count == null) delete next[k];
+      else next[k] = Math.max(1, Math.min(MAX_SETS, Math.round(count)));
+      return { ...s, setsOverrides: next };
+    });
+  }, []);
+
   const setRestOverride = useCallback((name, seconds) => {
     setState((s) => {
       const next = { ...(s.restOverrides || {}) };
@@ -3401,6 +3491,7 @@ function App() {
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
           setRestOverride={setRestOverride}
+          setSetsOverride={setSetsOverride}
           setDayPlan={setDayPlan}
           setPerf={setPerf}
           goProfile={() => { setTab('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
