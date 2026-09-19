@@ -756,6 +756,24 @@ function fmtDur(sec) {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
 
+/* ---------- Barres ratées du mésocycle en cours, regroupées par mouvement.
+     Un mouvement raté ne prend pas sa progression en fin de bloc : sa charge
+     est maintenue pendant que les autres continuent d'avancer. ---------- */
+function failedLiftsInCycle(fails, cycleNo) {
+  const out = {};
+  Object.keys(fails || {}).forEach((date) => {
+    const day = fails[date] || {};
+    Object.keys(day).forEach((k) => {
+      const f = day[k];
+      if (!f || !f.lift || f.resolved || (f.cycleNo || 1) !== cycleNo) return;
+      if (!out[f.lift]) out[f.lift] = [];
+      out[f.lift].push({ ...f, date });
+    });
+  });
+  Object.keys(out).forEach((id) => out[id].sort((a, b) => (a.date < b.date ? -1 : 1)));
+  return out;
+}
+
 /* ---------- Séances loupées dans la semaine civile (lundi → dimanche) qui
      contient cette date. Une seule ne change rien au programme ; à partir de
      deux, la semaine de cycle doit être refaite avant d'avancer. ---------- */
@@ -1163,6 +1181,7 @@ const DEFAULT_STATE = {
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
   missed: {},         // { 'YYYY-MM-DD': true } — séances déclarées loupées
+  fails: {},          // { 'YYYY-MM-DD': { "Nom exo|série": { lift, weight, pct, week, cycleNo } } } — barres ratées
   nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
 };
 
@@ -1227,6 +1246,7 @@ function loadState() {
       perfLog: parsed.perfLog || {},
       sessions: parsed.sessions || {},
       missed: parsed.missed || {},
+      fails: parsed.fails || {},
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
@@ -1460,27 +1480,31 @@ function RestTimer({ timer, setTimer, settings }) {
    7. LIGNE DE SÉRIE
    ============================================================ */
 
-function SetRow({ index, weight, reps, pct, checked, onToggle, accent, showPlates }) {
+function SetRow({ index, weight, reps, pct, checked, failed, onToggle, onFail, accent, showPlates }) {
   const a = ACC[accent];
   const pl = showPlates && weight ? plateBreakdown(weight) : null;
 
   return (
-    <button
-      onClick={onToggle}
-      className={`press flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
-        checked
-          ? 'border-lime2/45 bg-lime2/[.09]'
-          : 'border-white/10 bg-white/[.035] active:bg-white/[.07]'
+    <div
+      className={`flex w-full items-center gap-2 rounded-2xl border p-2 transition-colors ${
+        failed
+          ? 'border-neon/50 bg-neon/[.09]'
+          : checked
+            ? 'border-lime2/45 bg-lime2/[.09]'
+            : 'border-white/10 bg-white/[.035]'
       }`}
     >
+    <button onClick={onToggle} className="press flex min-w-0 flex-1 items-center gap-3 p-1 text-left">
       {/* Case à cocher massive */}
       <div
         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 font-display text-base transition-all ${
-          checked ? 'border-lime2 grad-lime text-ink pop' : 'border-white/20 bg-white/[.04] text-white/40'
+          failed
+            ? 'border-neon bg-neon/20 text-neon'
+            : checked ? 'border-lime2 grad-lime text-ink pop' : 'border-white/20 bg-white/[.04] text-white/40'
         }`}
-        style={checked ? { boxShadow: '0 0 22px -4px #39FF14' } : undefined}
+        style={!failed && checked ? { boxShadow: '0 0 22px -4px #39FF14' } : undefined}
       >
-        {checked ? '✓' : index + 1}
+        {failed ? '✕' : checked ? '✓' : index + 1}
       </div>
 
       {/* Charge & reps */}
@@ -1520,6 +1544,18 @@ function SetRow({ index, weight, reps, pct, checked, onToggle, accent, showPlate
         </span>
       )}
     </button>
+
+    {onFail && (
+      <button
+        onClick={onFail}
+        className={`press shrink-0 rounded-xl border px-2.5 py-3 font-display text-[10px] uppercase leading-none transition-colors ${
+          failed ? 'border-neon bg-neon/20 text-neon' : 'border-white/12 bg-white/[.05] text-white/30'
+        }`}
+      >
+        {failed ? '✕ Raté' : 'Raté'}
+      </button>
+    )}
+    </div>
   );
 }
 
@@ -1800,7 +1836,7 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, lastPerf, delay }) {
+function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, setFail, lowerRM, lastPerf, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
   const [editRest, setEditRest] = useState(false);
   const [editSets, setEditSets] = useState(false);
@@ -1840,6 +1876,11 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
   const logs = state.logs[dayKey] || {};
   const doneCount = sets.filter((_, i) => logs[`${ex.name}|${i}`]).length;
   const perfToday = (state.perfLog && state.perfLog[dayKey] && state.perfLog[dayKey][ex.name]) || [];
+  const failsToday = (state.fails && state.fails[dayKey]) || {};
+  const myFails = Object.keys(failsToday)
+    .filter((k) => k.indexOf(`${ex.name}|`) === 0)
+    .map((k) => failsToday[k])
+    .sort((x, y) => (x.pct || 0) - (y.pct || 0));
   const complete = sets.length > 0 && doneCount === sets.length;
 
   const restLabel = fmtRest(restSec);
@@ -2093,6 +2134,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
               );
             }
 
+            const failed = !!failsToday[key];
             return (
               <SetRow
                 key={key}
@@ -2101,12 +2143,69 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
                 reps={s.reps}
                 pct={s.pct}
                 checked={checked}
+                failed={failed}
                 accent={accent}
                 showPlates={isForce}
                 onToggle={() => toggle()}
+                onFail={isForce && setFail ? () => {
+                  if (failed) { setFail(dayKey, key, null); return; }
+                  setFail(dayKey, key, {
+                    lift: ex.lift, name: ex.name, setIdx: i,
+                    weight: s.weight, pct: s.pct, reps: s.reps,
+                    week, cycleNo: state.cycleNo || 1,
+                  });
+                  // La tentative compte comme faite : la série est cochée.
+                  if (!checked) toggleSet(dayKey, key, true);
+                  vibrate([120, 60, 120]);
+                } : null}
               />
             );
           })}
+        </div>
+      )}
+
+      {/* Barre ratée : quoi faire maintenant, et quoi faire du max */}
+      {isForce && myFails.length > 0 && (
+        <div className="mx-4 mb-4 rounded-2xl border border-neon/45 bg-neon/[.09] p-4">
+          <p className="font-display text-sm text-neon">
+            ✕ BARRE RATÉE — {fmtKg(myFails[0].weight)} KG À {myFails[0].pct}%
+          </p>
+          <p className="mt-1.5 text-[11px] font-medium leading-relaxed text-white/65">
+            {week === 1 ? (
+              <>Rater à {myFails[0].pct} % veut dire que ton max est nettement surestimé. Baisse-le
+              maintenant, sinon la semaine 2 à 85 % sera pire. Finis la séance avec la charge réduite.</>
+            ) : week === 2 ? (
+              <>À {myFails[0].pct} % tu dois finir tes reps. Termine les séries restantes avec 10 % de
+              moins, puis baisse ton max : mieux vaut trois blocs propres qu'un bloc raté.</>
+            ) : week === 3 ? (
+              <>C'est la semaine des singles lourds : échouer près du max est normal et ne remet rien en
+              cause. Ne touche à rien aujourd'hui. En fin de bloc, ce mouvement gardera sa charge pendant
+              que les autres prendront leur progression.</>
+            ) : (
+              <>Rater à {myFails[0].pct} % en semaine de décharge n'est pas un problème de force :
+              fatigue, sommeil ou maladie. Arrête là, dors, et repars sur le bloc suivant sans rien
+              changer à tes maxima.</>
+            )}
+          </p>
+          {myFails.every((f) => f.resolved) ? (
+            <p className="mt-2 rounded-xl border border-lime2/35 bg-lime2/[.08] p-2.5 text-[10px] font-bold leading-relaxed text-white/60">
+              ✓ Max corrigé. Le bloc repart sur une base juste, et la progression de fin de mésocycle
+              reste acquise sur ce mouvement.
+            </p>
+          ) : (
+            <p className="mt-2 rounded-xl border border-white/10 bg-white/[.04] p-2.5 text-[10px] font-bold leading-relaxed text-white/50">
+              🔒 Charge maintenue au prochain mésocycle sur {lift ? lift.label : ex.name}. Tes autres
+              mouvements continueront d'augmenter normalement.
+            </p>
+          )}
+          {week <= 2 && oneRM > 0 && lowerRM && !myFails.every((f) => f.resolved) && (
+            <button
+              onClick={() => lowerRM(ex.lift, 0.05)}
+              className="press mt-2 w-full rounded-2xl border border-neon/45 bg-neon/15 py-3 font-display text-[11px] uppercase tracking-wider text-neon"
+            >
+              ↓ Baisser mon max de 5 % — {fmtKg(oneRM)} → {fmtKg(round2_5(oneRM * 0.95))} kg
+            </button>
+          )}
         </div>
       )}
 
@@ -2450,7 +2549,7 @@ function RunCard({ type, sess, paces, dayKey, logs, toggleSet, goProfile, profil
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, setSession, setMissed, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
+function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail, lowerRM, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
@@ -2941,6 +3040,8 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, startTim
               setRestOverride={setRestOverride}
               setSetsOverride={setSetsOverride}
               setPerf={setPerf}
+              setFail={setFail}
+              lowerRM={lowerRM}
               lastPerf={lastPerfMap[ex.name]}
               delay={i * 55}
             />
@@ -3222,6 +3323,8 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
 
   const total = LIFTS.slice(0, 3).reduce((acc, l) => acc + (Number(state.profile[l.id]) || 0), 0);
   const missedWeek = missedInWeekOf(state.missed, dateKey());
+  const failedCycle = failedLiftsInCycle(state.fails, state.cycleNo || 1);
+  const heldCount = Object.keys(failedCycle).length;
 
   const exportData = () => {
     // Le son perso vit dans une clé séparée : on le rapatrie pour une sauvegarde complète
@@ -3441,18 +3544,38 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
             {LIFTS.map((l) => {
               const prev = Number(state.profile[l.id]) || 0;
               if (!prev) return null;
+              const held = !!failedCycle[l.id];
               const next = round2_5(prev + CYCLE_BUMP[l.id]);
               return (
-                <div key={l.id} className="flex items-center gap-2 rounded-xl border border-white/[.08] bg-white/[.025] px-3 py-2">
-                  <span className="flex-1 text-[11px] font-extrabold text-white/70">{l.label}</span>
-                  <span className="font-display text-sm text-white/35">{fmtKg(prev)}</span>
-                  <span className="text-lime2">→</span>
-                  <span className="font-display text-base text-lime2">{fmtKg(next)}</span>
-                  <span className="text-[9px] font-black text-white/30">KG</span>
+                <div key={l.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${held ? 'border-neon/35 bg-neon/[.07]' : 'border-white/[.08] bg-white/[.025]'}`}>
+                  <span className="flex-1 text-[11px] font-extrabold text-white/70">
+                    {held && <span className="mr-1">🔒</span>}{l.label}
+                  </span>
+                  {held ? (
+                    <>
+                      <span className="font-display text-base text-neon">{fmtKg(prev)}</span>
+                      <span className="text-[9px] font-black text-white/30">KG</span>
+                      <span className="text-[9px] font-black uppercase text-neon">maintenu</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-display text-sm text-white/35">{fmtKg(prev)}</span>
+                      <span className="text-lime2">→</span>
+                      <span className="font-display text-base text-lime2">{fmtKg(next)}</span>
+                      <span className="text-[9px] font-black text-white/30">KG</span>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
+          {heldCount > 0 && (
+            <p className="mt-2 rounded-xl border border-neon/35 bg-neon/[.07] p-2.5 text-[10px] font-bold leading-relaxed text-white/55">
+              🔒 {heldCount === 1 ? 'Un mouvement a été raté' : `${heldCount} mouvements ont été ratés`} pendant
+              ce bloc : {heldCount === 1 ? 'sa charge est maintenue' : 'leurs charges sont maintenues'} le temps
+              de la consolider. Les autres prennent leur progression normalement.
+            </p>
+          )}
           <div className="mt-3">
             <BigButton
               accent="lime"
@@ -3489,7 +3612,7 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
               const acc = ACC[l.accent];
               const gain = p.e1rm - (p.prev || 0);
               const d = new Date(p.date + 'T12:00:00');
-              const icon = p.kind === 'cycle' ? '🔄' : p.kind === 'correction' ? '✏️' : '🏆';
+              const icon = p.kind === 'cycle' ? '🔄' : p.kind === 'baisse' ? '⬇️' : p.kind === 'correction' ? '✏️' : '🏆';
               return (
                 <div key={p.id} className="flex items-center gap-3 px-3 py-2.5">
                   <span className="shrink-0 text-base">{icon}</span>
@@ -3498,7 +3621,9 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
                     <p className="text-[10px] font-bold text-white/35">
                       {p.kind === 'cycle'
                         ? `Progression de mésocycle`
-                        : `${fmtKg(p.weight)} kg × ${p.reps} rep${p.reps > 1 ? 's' : ''}`}
+                        : p.kind === 'baisse'
+                          ? `Max corrigé après une barre ratée`
+                          : `${fmtKg(p.weight)} kg × ${p.reps} rep${p.reps > 1 ? 's' : ''}`}
                       {' · '}
                       {d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
@@ -4067,6 +4192,51 @@ function App() {
     });
   }, []);
 
+  // Barre ratée sur une série de force (payload null = on retire le marquage)
+  const setFail = useCallback((dayKey, key, payload) => {
+    setState((s) => {
+      const all = { ...(s.fails || {}) };
+      const day = { ...(all[dayKey] || {}) };
+      if (payload) day[key] = payload; else delete day[key];
+      if (Object.keys(day).length) all[dayKey] = day; else delete all[dayKey];
+      const keys = Object.keys(all).sort();
+      if (keys.length > 90) keys.slice(0, keys.length - 90).forEach((k) => delete all[k]);
+      return { ...s, fails: all };
+    });
+  }, []);
+
+  // Max surestimé : on le redescend et on garde la trace dans l'historique
+  const lowerRM = useCallback((liftId, ratio) => {
+    setState((s) => {
+      const prev = Number(s.profile[liftId]) || 0;
+      if (!prev) return s;
+      const next = round2_5(prev * (1 - ratio));
+      if (next <= 0 || next === prev) return s;
+      // Le max vient d'être corrigé : les ratés de ce bloc sont soldés, la
+      // progression de fin de mésocycle reste acquise.
+      const cyc = s.cycleNo || 1;
+      const fails = {};
+      Object.keys(s.fails || {}).forEach((d) => {
+        const day = { ...s.fails[d] };
+        Object.keys(day).forEach((k) => {
+          const f = day[k];
+          if (f && f.lift === liftId && (f.cycleNo || 1) === cyc) day[k] = { ...f, resolved: true };
+        });
+        fails[d] = day;
+      });
+      const entry = {
+        id: Date.now() + Math.random(), lift: liftId, weight: next, reps: 1,
+        e1rm: next, prev, date: dateKey(), kind: 'baisse',
+      };
+      return {
+        ...s,
+        fails,
+        profile: { ...s.profile, [liftId]: next },
+        prs: [entry, ...(s.prs || [])].slice(0, 200),
+      };
+    });
+  }, []);
+
   // Séance déclarée loupée (ou annulation du marquage)
   const setMissed = useCallback((dayKey, val) => {
     setState((s) => {
@@ -4142,9 +4312,12 @@ function App() {
     setState((s) => {
       const profile = { ...s.profile };
       const entries = [];
+      const failed = failedLiftsInCycle(s.fails, s.cycleNo || 1);
       LIFTS.forEach((l) => {
         const prev = Number(profile[l.id]) || 0;
         if (!prev) return;
+        // Barre ratée pendant le bloc : charge maintenue, les autres avancent.
+        if (failed[l.id]) return;
         const next = round2_5(prev + CYCLE_BUMP[l.id]);
         profile[l.id] = next;
         entries.push({
@@ -4241,6 +4414,8 @@ function App() {
           toggleSet={toggleSet}
           setSession={setSession}
           setMissed={setMissed}
+          setFail={setFail}
+          lowerRM={lowerRM}
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
           setRestOverride={setRestOverride}
