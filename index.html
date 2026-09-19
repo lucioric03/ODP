@@ -289,6 +289,16 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /* ---------- Catalogue : tous les exercices du programme, indexés par nom.
      Sert de réservoir pour remplacer/ajouter un exercice dans une séance. ---------- */
+/* ---------- Exercices proposés au choix sans figurer dans une séance par
+     défaut. Ils comblent les manques d'un programme qui court : ischios
+     excentriques, soléaire, tirage et santé d'épaule. ---------- */
+const EXTRA_EXERCISES = [
+  { kind: 'isolation', name: 'Nordic Curl', sets: 3, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, mains prêtes à rattraper. La référence pour blinder les ischios contre le claquage en sprint.' },
+  { kind: 'compound',  name: 'Soulevé de Terre Roumain', sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
+  { kind: 'isolation', name: 'Mollets assis', sets: 3, reps: '12-15', rest: 60, note: 'Genou plié : cible le soléaire, le muscle le plus sollicité en course à pied. Pause 2 s en bas.' },
+  { kind: 'isolation', name: 'Face Pull', sets: 3, reps: '12-15', rest: 60, note: 'Poulie haute, tire vers le front, coudes hauts. Santé d\'épaule et posture de course.' },
+];
+
 const CATALOG = (() => {
   const m = new Map();
   WEEK_ORDER.forEach((d) => {
@@ -296,6 +306,7 @@ const CATALOG = (() => {
     if (!p || p.off || !p.exercises) return;
     p.exercises.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
   });
+  EXTRA_EXERCISES.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
   return m;
 })();
 
@@ -659,6 +670,15 @@ function lastSetFor(lastPerf, i) {
 function ssPartnerAt(list, i) {
   const ex = list[i], next = list[i + 1];
   return ex && ex.ss && next && next.ss === ex.ss ? next.name : null;
+}
+
+/* ---------- Superset réellement formé : le marqueur 🔗 ne doit pas rester
+     sur un exercice dont le partenaire a été retiré de la séance. ---------- */
+function ssLinked(list, i) {
+  const ex = list[i];
+  if (!ex || !ex.ss) return false;
+  const prev = list[i - 1], next = list[i + 1];
+  return !!((prev && prev.ss === ex.ss) || (next && next.ss === ex.ss));
 }
 
 /* ============================================================
@@ -1750,7 +1770,7 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, lastPerf, delay }) {
+function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, lastPerf, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
   const [editRest, setEditRest] = useState(false);
   const [editSets, setEditSets] = useState(false);
@@ -1807,7 +1827,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, state, dayKey, toggleSet, startTim
           <div className="min-w-0">
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               <Pill accent={accent}>{kindLabel}</Pill>
-              {ex.ss && <Pill accent="lime">🔗 SUPERSET {ex.ss}</Pill>}
+              {ssLinked2 && <Pill accent="lime">🔗 SUPERSET {ex.ss}</Pill>}
               {isForce && <Pill accent={cyc.accent}>S{week} · {cyc.name}</Pill>}
               {complete && <Pill accent="lime">✓ TERMINÉ</Pill>}
             </div>
@@ -2149,6 +2169,7 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
   const [picker, setPicker] = useState(null); // { mode:'add'|'replace', index }
 
   const commit = (names) => setDayPlan(dow, names);
+  const exList = current.map((n) => CATALOG.get(n)).filter(Boolean);
 
   const move = (i, dir) => {
     const next = current.slice();
@@ -2199,7 +2220,7 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
 
                 <div className="min-w-0 flex-1">
                   <p className={`truncate text-[12px] font-extrabold ${isForce ? 'text-neon' : 'text-white/85'}`}>
-                    {ex.ss && <span className="mr-1 text-lime2">🔗</span>}{name}
+                    {ssLinked(exList, i) && <span className="mr-1 text-lime2">🔗</span>}{name}
                   </p>
                   <p className="text-[10px] font-bold text-white/35">
                     {isForce
@@ -2818,6 +2839,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
               ex={ex}
               exIdx={i}
               ssPartner={ssPartnerAt(exList, i)}
+              ssLinked2={ssLinked(exList, i)}
               state={state}
               dayKey={dKey}
               toggleSet={toggleSet}
@@ -2933,14 +2955,16 @@ function ProgramView({ state }) {
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
                   const pcts = isForce ? forcePcts(ex, cyc, setsOverrideOf(ex, d, state.setsOverrides)) : null;
-                  const ssNext = ssPartnerAt(exercisesFor(d, state), i);
+                  const dayList = exercisesFor(d, state);
+                  const ssNext = ssPartnerAt(dayList, i);
+                  const linked = ssLinked(dayList, i);
                   const restSec = ssNext ? 0 : restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
                   return (
-                    <div key={i} className={`flex items-center gap-3 rounded-2xl border p-3 ${ex.ss ? 'border-lime2/25 bg-lime2/[.04]' : 'border-white/[.08] bg-white/[.025]'}`}>
-                      <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? acc2.grad : ex.ss ? 'grad-lime' : 'bg-white/15'}`} />
+                    <div key={i} className={`flex items-center gap-3 rounded-2xl border p-3 ${linked ? 'border-lime2/25 bg-lime2/[.04]' : 'border-white/[.08] bg-white/[.025]'}`}>
+                      <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? acc2.grad : linked ? 'grad-lime' : 'bg-white/15'}`} />
                       <div className="min-w-0 flex-1">
                         <p className={`truncate text-[13px] font-extrabold ${isForce ? acc2.text : 'text-white/85'}`}>
-                          {ex.ss && <span className="mr-1 text-lime2">🔗</span>}{ex.name}
+                          {linked && <span className="mr-1 text-lime2">🔗</span>}{ex.name}
                         </p>
                         <p className="text-[10px] font-bold text-white/35">
                           {isForce
