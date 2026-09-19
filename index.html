@@ -233,11 +233,10 @@ const PROGRAM = {
     am: { run: 'quality' },
     exercises: [
       { kind: 'force', lift: 'bench', name: 'Développé Couché', note: 'Pause 1s sur la poitrine en semaine 3.' },
-      { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', note: 'Étirement complet, coudes à 45°.' },
+      { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Face Pull', note: 'Étirement complet, coudes à 45°. Enchaîné au face pull : le repos vient après la paire.' },
+      { kind: 'isolation', name: 'Face Pull',              sets: 3, reps: '12-15', rest: 75, ss: 'A', note: 'Poulie haute, tire vers le front, coudes hauts. Antagoniste de la poussée : zéro temps perdu, et tes épaules tiennent.' },
       { kind: 'isolation', name: 'Écartés Poulie',         sets: 3, reps: '6-10', note: 'Arc de cercle, léger fléchissement des coudes.' },
       { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
-      { kind: 'isolation', name: 'Extension Triceps Poulie', sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
-      { kind: 'isolation', name: 'Pecs Deck Inversé',      sets: 5, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
       { kind: 'finisher',  name: 'Corde à sauter — HIIT',  sets: 1, reps: '10-15 min', dropWhenRunning: true, note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
     ],
   },
@@ -259,27 +258,25 @@ const PROGRAM = {
     focus: 'Chaîne postérieure · Dorsaux · Biceps',
     exercises: [
       { kind: 'force', lift: 'deadlift', name: 'Soulevé de Terre', note: 'Reset au sol à chaque rep. Pas de traction sur la barre avant le lock du dos.' },
-      { kind: 'compound',  name: 'Tirage Vertical Machine',     sets: 3, reps: '6-10', note: 'Amène la barre à la clavicule, poitrine sortie.' },
-      { kind: 'compound',  name: 'Tirage Horizontal (Rowing)',  sets: 3, reps: '6-10', note: 'Serre les omoplates 1s.' },
+      { kind: 'compound',  name: 'Tirage Vertical Machine',     sets: 4, reps: '6-10', note: 'Amène la barre à la clavicule, poitrine sortie.' },
+      { kind: 'compound',  name: 'Tirage Horizontal (Rowing)',  sets: 4, reps: '6-10', note: 'Serre les omoplates 1s.' },
+      { kind: 'isolation', name: 'Nordic Curl',                 sets: 2, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, mains prêtes à rattraper. Commence à 3 reps : les courbatures des premières séances sont sévères. C\'est ce qui protège tes ischios du claquage en sprint.' },
       { kind: 'isolation', name: 'Curl Biceps Poulie',          sets: 3, reps: '6-10', note: 'Coudes fixes, zéro élan de hanches.' },
-      { kind: 'isolation', name: 'Curl Marteau',                sets: 4, reps: '10-12', rest: 90, note: 'Prise neutre, poignets verrouillés. Cible le brachial et le long supinateur.' },
-      { kind: 'isolation', name: 'Oiseau Poulie',               sets: 5, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
+      { kind: 'isolation', name: 'Curl Marteau',                sets: 3, reps: '10-12', rest: 90, note: 'Prise neutre, poignets verrouillés. Cible le brachial et le long supinateur.' },
     ],
   },
   6: {
     day: 'SAMEDI', num: 5, accent: 'viol',
     title: 'Force OHP + Épaules & Rappel',
-    focus: 'Matin : sortie longue · Soir : deltoïdes & rappel',
+    focus: 'Matin : sortie longue · Soir : deltoïdes, dips & mollets',
     am: { run: 'long' },
     exercises: [
       { kind: 'force', lift: 'ohp', name: 'Overhead Press', forceSets: 3, note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
-      { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
       { kind: 'isolation', name: 'Élévations Latérales Machine', sets: 3, reps: '6-10', note: 'Monte jusqu\'à l\'horizontale, descente 3s.' },
-      { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Mollets debout', note: 'Charge modérée, focus sur le stretch.' },
-      { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '6-10', ss: 'A', note: 'Pause 2s en bas, explosion en haut. Repos après la paire complète.' },
-      { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, ss: 'B', ssWith: 'Dips', note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
-      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, ss: 'B', note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
-      { kind: 'isolation', name: 'Crunch à la Poulie',           sets: 3, reps: '12-15', rest: 45, note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
+      { kind: 'isolation', name: 'Pecs Deck Inversé',            sets: 4, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
+      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
+      { kind: 'isolation', name: 'Mollets assis',                sets: 3, reps: '12-15', rest: 60, ss: 'A', ssWith: 'Crunch à la Poulie', note: 'Genou plié : cible le soléaire, le muscle le plus chargé en course à pied. Pause 2s en bas, enchaîné aux abdos.' },
+      { kind: 'isolation', name: 'Crunch à la Poulie',           sets: 3, reps: '12-15', rest: 45, ss: 'A', note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes. Repos après la paire complète.' },
     ],
   },
   0: { off: true, day: 'DIMANCHE', accent: 'pink', title: 'REPOS OBLIGATOIRE', focus: 'Récupération totale · Prépare ta semaine' },
@@ -289,14 +286,24 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /* ---------- Catalogue : tous les exercices du programme, indexés par nom.
      Sert de réservoir pour remplacer/ajouter un exercice dans une séance. ---------- */
+/* ---------- Version du programme par défaut. Quand elle change, les séances
+     réorganisées à la main sont remises à zéro : le nouveau programme intègre
+     déjà ces ajustements, et sans ça une séance personnalisée masquerait la
+     mise à jour. Les charges, les 1RM, les records et l'historique ne sont
+     jamais touchés — ils sont indexés par nom d'exercice. ---------- */
+const PROGRAM_VERSION = 2;
+
 /* ---------- Exercices proposés au choix sans figurer dans une séance par
      défaut. Ils comblent les manques d'un programme qui court : ischios
      excentriques, soléaire, tirage et santé d'épaule. ---------- */
 const EXTRA_EXERCISES = [
-  { kind: 'isolation', name: 'Nordic Curl', sets: 3, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, mains prêtes à rattraper. La référence pour blinder les ischios contre le claquage en sprint.' },
   { kind: 'compound',  name: 'Soulevé de Terre Roumain', sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
-  { kind: 'isolation', name: 'Mollets assis', sets: 3, reps: '12-15', rest: 60, note: 'Genou plié : cible le soléaire, le muscle le plus sollicité en course à pied. Pause 2 s en bas.' },
-  { kind: 'isolation', name: 'Face Pull', sets: 3, reps: '12-15', rest: 60, note: 'Poulie haute, tire vers le front, coudes hauts. Santé d\'épaule et posture de course.' },
+  { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '10-15', rest: 60, note: 'Genou tendu : cible les jumeaux. Pause 2s en bas, explosion en haut.' },
+  { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
+  { kind: 'isolation', name: 'Extension Triceps Poulie',     sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
+  { kind: 'isolation', name: 'Oiseau Poulie',                sets: 5, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
+  { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
+  { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', note: 'Charge modérée, focus sur le stretch.' },
 ];
 
 const CATALOG = (() => {
@@ -1137,6 +1144,7 @@ const DEFAULT_STATE = {
   restOverrides: {},  // { "Nom de l'exercice": secondes }
   setsOverrides: {},  // { "<jour>|Nom de l'exercice": nombre de séries }
   dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
+  programVersion: PROGRAM_VERSION,
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
   nutrition: { weight: 0, height: 0, age: 0, sex: 'h', activity: 1.55, goal: 'maintien' },
@@ -1185,6 +1193,8 @@ function loadState() {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return { ...DEFAULT_STATE };
     const parsed = JSON.parse(raw);
+    // Programme par défaut plus récent que la sauvegarde ? On repart de lui.
+    const fresh = (Number(parsed.programVersion) || 1) < PROGRAM_VERSION;
     return {
       ...DEFAULT_STATE,
       ...parsed,
@@ -1193,8 +1203,11 @@ function loadState() {
       logs: parsed.logs || {},
       prs: Array.isArray(parsed.prs) ? parsed.prs : [],
       restOverrides: parsed.restOverrides || {},
-      setsOverrides: parsed.setsOverrides || {},
-      dayPlans: parsed.dayPlans || {},
+      // Programme mis à jour : on repart des séances officielles, qui
+      // contiennent désormais les réglages faits à la main.
+      setsOverrides: fresh ? {} : (parsed.setsOverrides || {}),
+      dayPlans: fresh ? {} : (parsed.dayPlans || {}),
+      programVersion: PROGRAM_VERSION,
       perfLog: parsed.perfLog || {},
       sessions: parsed.sessions || {},
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
