@@ -229,7 +229,8 @@ const PROGRAM = {
   2: {
     day: 'MARDI', num: 2, accent: 'cyan',
     title: 'Force Bench + Pecs/Triceps',
-    focus: 'Pectoraux · Triceps · Cardio',
+    focus: 'Matin : qualité 10 km · Soir : pectoraux & triceps',
+    am: { run: 'quality' },
     exercises: [
       { kind: 'force', lift: 'bench', name: 'Développé Couché', note: 'Pause 1s sur la poitrine en semaine 3.' },
       { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', note: 'Étirement complet, coudes à 45°.' },
@@ -237,13 +238,14 @@ const PROGRAM = {
       { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
       { kind: 'isolation', name: 'Extension Triceps Poulie', sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
       { kind: 'isolation', name: 'Pecs Deck Inversé',      sets: 5, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
-      { kind: 'finisher',  name: 'Corde à sauter — HIIT',  sets: 1, reps: '10-15 min', note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
+      { kind: 'finisher',  name: 'Corde à sauter — HIIT',  sets: 1, reps: '10-15 min', dropWhenRunning: true, note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
     ],
   },
   3: {
     day: 'MERCREDI', num: 3, accent: 'lime',
     title: 'Sprint & Explosivité',
-    focus: 'Vitesse · Système nerveux — Aucune muscu',
+    focus: 'Vitesse maximale · Système nerveux — aucune muscu',
+    run: 'sprint',
     exercises: [
       { kind: 'cardio', name: 'Échauffement athlétique', sets: 1, reps: '15 min', note: 'Gammes : talons-fesses, montées de genoux, foulées bondissantes, mobilité hanches/chevilles.' },
       { kind: 'sprint', name: 'Sprints 30-50 m',         sets: 8, reps: '1 sprint', note: 'Départ debout ou 3 appuis. Intensité 95-100%. Repos COMPLET entre chaque.' },
@@ -267,7 +269,8 @@ const PROGRAM = {
   6: {
     day: 'SAMEDI', num: 5, accent: 'viol',
     title: 'Force OHP + Épaules & Rappel',
-    focus: 'Deltoïdes · Rappel ischios/mollets',
+    focus: 'Matin : sortie longue · Soir : deltoïdes & rappel',
+    am: { run: 'long' },
     exercises: [
       { kind: 'force', lift: 'ohp', name: 'Overhead Press', forceSets: 3, note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
       { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
@@ -298,16 +301,299 @@ const CATALOG = (() => {
 
 const CATALOG_LIST = Array.from(CATALOG.values());
 
+/* ============================================================
+   2 ter. COURSE — moteur d'allures et de séances
+   ------------------------------------------------------------
+   Même logique que la muscu : une référence unique — le 10 km — pilote
+   toutes les allures, comme le 1RM pilote les charges. La séance change
+   avec la semaine du cycle (ACCUMULATION → INTENSIFICATION → PEAK →
+   DELOAD) et grandit à chaque mésocycle. Rien à décider le jour J.
+
+   Trois sorties par semaine, jamais plus : c'est le maximum compatible
+   avec 5 séances de muscu sans grignoter la force. Les deux sorties
+   exigeantes tombent le matin des jours où le soir travaille le HAUT du
+   corps (mardi, samedi) — jamais la veille ni le jour des squats et
+   soulevés de terre.
+   ============================================================ */
+
+// 2 = mardi matin (qualité) · 3 = mercredi (sprint) · 6 = samedi matin (sortie longue)
+const RUN_DAYS = { 2: 'quality', 3: 'sprint', 6: 'long' };
+
+// Allures dérivées du 10 km (modèle Daniels simplifié : facteur × allure 10 km)
+const PACE_F = { easy: 1.32, easyMax: 1.45, marathon: 1.1, seuil: 1.045, dixk: 1, vo2: 0.965, rep: 0.895 };
+
+const PACE_LABEL = {
+  easy: 'Endurance', marathon: 'Allure marathon', seuil: 'Seuil',
+  dixk: 'Allure 10 km', vo2: 'VO2max (3-5 km)', rep: 'Vitesse (400 m)',
+};
+
+function runPaces(t10k) {
+  const t = Number(t10k) || 0;
+  if (t < 1200) return null;                 // moins de 20 min au 10 km : donnée aberrante
+  const base = t / 10;                       // secondes par kilomètre à allure 10 km
+  const out = {};
+  Object.keys(PACE_F).forEach((k) => { out[k] = base * PACE_F[k]; });
+  return out;
+}
+
+// 265 → "4:25"
+function fmtPace(sec) {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// "42:30" ou "42" → secondes · 2550 → "42:30"
+function parseClock(txt) {
+  const m = String(txt || '').trim().match(/^(\d{1,3})\s*[:.']?\s*(\d{1,2})?$/);
+  if (!m) return 0;
+  return Number(m[1]) * 60 + (m[2] ? Number(m[2]) : 0);
+}
+function fmtClock(sec) {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/* ---------- Séance de course du jour.
+     type : 'quality' (mardi) · 'sprint' (mercredi) · 'long' (samedi)
+     week : 1-4 dans le cycle · cycleNo : mésocycle en cours ---------- */
+function runSession(type, week, cycleNo, p) {
+  const g = Math.min(3, Math.max(0, (Number(cycleNo) || 1) - 1));   // +1 cran par mésocycle, plafonné
+  const alt = (Number(cycleNo) || 1) % 2 === 0;                     // variante un cycle sur deux
+  const W = Math.min(4, Math.max(1, Number(week) || 1));
+  const at = (k) => (p ? `${fmtPace(p[k])} /km` : '— /km');
+  const easy = p ? `${fmtPace(p.easy)}–${fmtPace(p.easyMax)} /km` : '— /km';
+  const B = (label, detail, pace, sub, kind) => ({ label, detail, pace, sub, kind: kind || 'main' });
+  const warmRun = (min) => B('Échauffement', `${min} min en endurance`, easy, 'Départ très lent, le corps doit avoir chaud avant la première accélération', 'warm');
+  const strides = (n) => B('Accélérations', `${n} × 20 s progressives`, at('rep'), 'Récup 40 s de marche — prépare les jambes à l\'allure rapide', 'warm');
+  const coolRun = (min) => B('Retour au calme', `${min} min en endurance très lente`, easy, 'Obligatoire : c\'est là que la séance se digère', 'cool');
+  const reps = (n, label, detail, pace, sub) =>
+    Array.from({ length: n }, (_, i) => B(`${label} ${i + 1}/${n}`, detail, pace, sub));
+
+  if (type === 'quality') {
+    if (W === 1) {
+      const m = Math.min(12, 8 + 2 * g);
+      return {
+        tag: `SEUIL · 2 × ${m} min`,
+        title: 'Seuil — le moteur du 10 km',
+        focus: 'Repousse le seuil lactique : l\'allure que tu tiens une heure',
+        why: 'Le seuil est le déterminant n°1 du chrono sur 10 km. Effort « confortablement dur » : tu peux dire trois mots, pas une phrase. Si tu finis cassé, c\'était trop vite.',
+        blocks: [
+          warmRun(12), strides(4),
+          B('Bloc 1', `${m} min au seuil`, at('seuil'), 'Allure régulière, pas de départ trop rapide'),
+          B('Récupération', '2 min de trot', easy, null, 'rec'),
+          B('Bloc 2', `${m} min au seuil`, at('seuil'), 'Même allure que le bloc 1, pas plus vite'),
+          coolRun(8),
+        ],
+        totalMin: 12 + 3 + 2 * m + 2 + 8,
+      };
+    }
+    if (W === 2) {
+      const n = Math.min(6, 4 + g);
+      return {
+        tag: `ALLURE 10 KM · ${n} × 1000 m`,
+        title: 'Allure course — ancrage du chrono',
+        focus: 'Apprendre à ton corps l\'allure exacte de ton objectif',
+        why: 'Travailler à l\'allure de course rend cette vitesse automatique et économique. La dernière répétition doit être la plus rapide, jamais la plus lente.',
+        blocks: [
+          warmRun(12), strides(4),
+          ...reps(n, 'Répétition', '1000 m à allure 10 km', at('dixk'), 'Récup 90 s de trot entre chaque'),
+          coolRun(8),
+        ],
+        totalMin: 12 + 3 + Math.round(n * 5.5) + 8,
+      };
+    }
+    if (W === 3) {
+      if (alt) {
+        const n = Math.min(10, 8 + g);
+        return {
+          tag: `VITESSE · ${n} × 400 m`,
+          title: 'VO2max court — cylindrée maximale',
+          focus: 'Fractionné court et vif, peu de dégâts musculaires',
+          why: 'Les 400 m sollicitent le VO2max avec très peu de casse musculaire : c\'est la version la plus compatible avec une semaine de muscu chargée.',
+          blocks: [
+            warmRun(15), strides(4),
+            ...reps(n, 'Répétition', '400 m rapide mais relâché', at('rep'), 'Récup 90 s de trot — la foulée doit rester ample'),
+            coolRun(10),
+          ],
+          totalMin: 15 + 3 + n * 3 + 10,
+        };
+      }
+      const n = Math.min(6, 5 + g);
+      return {
+        tag: `VO2MAX · ${n} × 800 m`,
+        title: 'VO2max — le plafond aérobie',
+        focus: 'La séance qui fait monter la cylindrée',
+        why: 'Trois à cinq minutes d\'effort par répétition, c\'est la zone qui développe le plus le VO2max. C\'est la séance la plus dure du cycle : elle tombe en semaine PEAK, quand la muscu est en singles et laisse de la place.',
+        blocks: [
+          warmRun(15), strides(4),
+          ...reps(n, 'Répétition', '800 m à allure 3-5 km', at('vo2'), 'Récup 2 min 30 de trot'),
+          coolRun(10),
+        ],
+        totalMin: 15 + 3 + n * 6 + 10,
+      };
+    }
+    return {
+      tag: 'DELOAD · 25 min + lignes droites',
+      title: 'Régénération active',
+      focus: 'Volume coupé, vitesse entretenue',
+      why: 'On garde le geste rapide sans aucune fatigue : c\'est la semaine où les adaptations des trois précédentes se transforment en chrono.',
+      blocks: [
+        B('Endurance', '25 min très souple', easy, 'Tu dois pouvoir tenir une conversation entière', 'warm'),
+        B('Lignes droites', '6 × 20 s rapides', at('rep'), 'Récup 60 s de marche — relâché, aucune douleur'),
+        coolRun(5),
+      ],
+      totalMin: 38,
+    };
+  }
+
+  if (type === 'long') {
+    const base = Math.min(65, 45 + 5 * g);
+    if (W === 1) {
+      return {
+        tag: `SORTIE LONGUE · ${base} min`,
+        title: 'Sortie longue — la base aérobie',
+        focus: 'Capillarisation, mitochondries, économie de course',
+        why: 'Tout en endurance fondamentale, même si ça paraît lent : c\'est ce qui construit le moteur sans coûter de récupération à la muscu. Tu sors de la séance en te sentant capable d\'en refaire autant.',
+        blocks: [
+          B('Sortie', `${base} min en endurance`, easy, 'Jamais essoufflé. Si tu dois forcer, ralentis', 'warm'),
+          B('Lignes droites', '4 × 20 s', at('rep'), 'À la toute fin, pour réveiller la foulée'),
+        ],
+        totalMin: base + 4,
+      };
+    }
+    if (W === 2) {
+      const m = 8 + g;
+      return {
+        tag: `LONGUE + ALLURE · 2 × ${m} min`,
+        title: 'Sortie longue avec allure marathon',
+        focus: 'Courir vite sur jambes déjà fatiguées',
+        why: 'Placer l\'allure soutenue en fin de sortie reproduit exactement ce que tu vivras sur les trois derniers kilomètres d\'un 10 km.',
+        blocks: [
+          B('Endurance', `${base - 2 * m - 5} min en endurance`, easy, null, 'warm'),
+          B('Bloc 1', `${m} min à allure marathon`, at('marathon'), null),
+          B('Récupération', '3 min de trot', easy, null, 'rec'),
+          B('Bloc 2', `${m} min à allure marathon`, at('marathon'), null),
+          coolRun(5),
+        ],
+        totalMin: base + 3,
+      };
+    }
+    if (W === 3) {
+      const m = 10 + g;
+      return {
+        tag: `LONGUE PROGRESSIVE · ${m} min seuil`,
+        title: 'Sortie longue à finish rapide',
+        focus: 'Negative split : finir plus vite qu\'on a commencé',
+        why: 'Finir au seuil sur des jambes vidées est le meilleur entraînement mental et physiologique pour un 10 km. C\'est aussi la séance qui transforme la base des semaines 1 et 2 en vitesse.',
+        blocks: [
+          B('Endurance', `${base - m} min en endurance`, easy, 'Vraiment lent : tu dois garder la dernière partie en réserve', 'warm'),
+          B('Finish', `${m} min au seuil`, at('seuil'), 'Accélération progressive, sans sprint final'),
+          coolRun(6),
+        ],
+        totalMin: base + 6,
+      };
+    }
+    return {
+      tag: 'DELOAD · 30 min',
+      title: 'Sortie courte de récupération',
+      focus: 'Tourner les jambes, rien de plus',
+      why: 'Semaine de décharge : la course sert seulement à garder l\'habitude et à accélérer la récupération de la muscu.',
+      blocks: [B('Sortie', '30 min très souple', easy, 'Aucune accélération', 'warm')],
+      totalMin: 30,
+    };
+  }
+
+  // ---- SPRINT (mercredi) : vitesse maximale, aucun compromis avec la fatigue
+  const warmSprint = [
+    B('Échauffement', '12 min en endurance', easy, null, 'warm'),
+    B('Gammes athlétiques', 'Talons-fesses, montées de genoux, pas chassés, foulées bondissantes', null, '2 × 20 m chacune', 'warm'),
+    B('Accélérations', '3 × 50 m progressives', at('rep'), 'Récup marche — monte en vitesse palier par palier', 'warm'),
+  ];
+  if (W === 1) {
+    if (alt) {
+      const n = Math.min(10, 8 + g);
+      return {
+        tag: `CÔTES · ${n} × 10 s`,
+        title: 'Sprints en côte — puissance sans casse',
+        focus: 'Force spécifique et économie de course',
+        why: 'La côte limite la vitesse d\'allongement musculaire : on développe la puissance de poussée avec beaucoup moins de courbatures qu\'à plat. C\'est la variante qui protège le mieux ta séance de jambes.',
+        blocks: [...warmSprint, ...reps(n, 'Côte', '10 s à fond sur pente 8-10 %', null, 'Retour en marchant, 2 min de récup complète'), coolRun(10)],
+        totalMin: 12 + 10 + n * 3 + 10,
+      };
+    }
+    return {
+      tag: 'SPRINT · 8 × 40 m',
+      title: 'Vitesse maximale',
+      focus: 'Qualité pure : chaque sprint doit être le plus rapide',
+      why: 'La vitesse maximale se travaille frais et se perd vite. Récupération complète entre chaque : dès que le chrono baisse, la séance est finie.',
+      blocks: [...warmSprint, ...reps(8, 'Sprint', '40 m départ debout', null, 'Récup complète 2 min 30 — marche, pas de trot'), coolRun(10)],
+      totalMin: 12 + 10 + 24 + 10,
+    };
+  }
+  if (W === 2) {
+    const n = Math.min(8, 6 + g);
+    return {
+      tag: `SPRINT · ${n} × 60 m`,
+      title: 'Vitesse lancée',
+      focus: 'Tenir la vitesse maximale plus longtemps',
+      why: 'Sur 60 m, tu atteins ta vitesse maximale puis tu dois la maintenir : c\'est ce qui transfère le plus à l\'économie de course sur 10 km.',
+      blocks: [...warmSprint, ...reps(n, 'Sprint', '60 m : 20 m de mise en action puis 40 m lancés', null, 'Récup complète 3 min'), coolRun(10)],
+      totalMin: 12 + 10 + n * 4 + 10,
+    };
+  }
+  if (W === 3) {
+    const n = Math.min(6, 4 + g);
+    return {
+      tag: `SPRINT · 4 × 30 m + ${n} × 60 m`,
+      title: 'Explosivité et vitesse maximale',
+      focus: 'Semaine PEAK : le système nerveux est chaud, on en profite',
+      why: 'Départs arrêtés pour la force explosive, puis lancés pour la vitesse pure. Cette séance tombe la même semaine que tes singles lourds : le système nerveux est déjà affûté.',
+      blocks: [
+        ...warmSprint,
+        ...reps(4, 'Départ arrêté', '30 m départ 3 appuis', null, 'Récup 2 min'),
+        ...reps(n, 'Lancé', '60 m avec 20 m d\'élan', null, 'Récup complète 3 min'),
+        coolRun(10),
+      ],
+      totalMin: 12 + 10 + 8 + n * 4 + 10,
+    };
+  }
+  return {
+    tag: 'DELOAD · 5 × 30 m',
+    title: 'Entretien de la vitesse',
+    focus: 'Rapide mais sans forcer',
+    why: 'Semaine de décharge : on garde le geste vif à 90 % d\'intensité, sans jamais chercher le chrono.',
+    blocks: [...warmSprint, ...reps(5, 'Sprint', '30 m à 90 % d\'intensité', null, 'Récup 2 min'), coolRun(8)],
+    totalMin: 12 + 10 + 15 + 8,
+  };
+}
+
+/* ---------- Résumé copiable pour construire la séance dans Garmin ---------- */
+function runGarminText(sess) {
+  const lines = sess.blocks.map((b) =>
+    `${b.label} — ${b.detail}${b.pace ? ` @ ${b.pace}` : ''}${b.sub ? ` (${b.sub})` : ''}`);
+  return `${sess.tag}\n${lines.join('\n')}`;
+}
+
+/* ---------- Clé de coche d'un bloc de course (ne collisionne pas avec les
+     exercices de muscu, dont la clé est "Nom|index"). ---------- */
+const runLogKey = (type, i) => `__run:${type}|${i}`;
+
 /* ---------- Séance effective d'un jour : plan personnalisé s'il existe,
      sinon le programme d'origine. ---------- */
 function exercisesFor(dow, state) {
   const p = PROGRAM[dow];
   if (!p || p.off || !p.exercises) return [];
   const plan = state.dayPlans && state.dayPlans[dow];
-  if (!plan || !plan.length) return p.exercises;
-  const out = [];
-  plan.forEach((name) => { const ex = CATALOG.get(name); if (ex) out.push(ex); });
-  return out.length ? out : p.exercises;
+  let list = p.exercises;
+  if (plan && plan.length) {
+    const out = [];
+    plan.forEach((name) => { const ex = CATALOG.get(name); if (ex) out.push(ex); });
+    if (out.length) list = out;
+  }
+  // Le programme de course couvre déjà le cardio : on enlève les finishers
+  // qui feraient doublon avec la sortie du matin.
+  const running = !state.settings || state.settings.run !== false;
+  return running ? list.filter((ex) => !ex.dropWhenRunning) : list;
 }
 
 /* ---------- Dernière performance connue par exercice, sur LE MÊME JOUR de la
@@ -822,10 +1108,10 @@ function vibrate(pattern) {
    ============================================================ */
 
 const DEFAULT_STATE = {
-  profile: { squat: 0, bench: 0, deadlift: 0, ohp: 0 },
+  profile: { squat: 0, bench: 0, deadlift: 0, ohp: 0, run10k: 0 },   // run10k en secondes
   week: 1,
   cycleNo: 1,
-  settings: { sound: true, vibration: true, autoTimer: true, bgAlarm: true },
+  settings: { sound: true, vibration: true, autoTimer: true, bgAlarm: true, run: true },
   logs: {},   // { 'YYYY-MM-DD': { '0|2': true, ... } }
   prs: [],    // [{ id, lift, weight, reps, e1rm, prev, date, kind }]
   restOverrides: {},  // { "Nom de l'exercice": secondes }
@@ -1971,6 +2257,145 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
 }
 
 /* ============================================================
+   8 ter. CARTE — SÉANCE DE COURSE
+   ============================================================ */
+
+const RUN_ICON = { warm: '🔥', main: '⚡', rec: '💤', cool: '🧊' };
+
+function RunCard({ type, sess, paces, dayKey, logs, toggleSet, goProfile, profile }) {
+  const [copied, setCopied] = useState(false);
+  const [openWhy, setOpenWhy] = useState(false);
+  const accent = type === 'sprint' ? 'lime' : type === 'long' ? 'viol' : 'cyan';
+  const a = ACC[accent];
+  const icon = type === 'sprint' ? '💨' : type === 'long' ? '🏔️' : '🎯';
+
+  const copy = () => {
+    const txt = runGarminText(sess);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+        return;
+      }
+    } catch (e) {}
+    setCopied(false);
+  };
+
+  return (
+    <>
+      <Card accent={accent} glow className="rise overflow-hidden">
+        <div className={`h-1 w-full ${a.grad}`} />
+        <div className="p-4">
+          <div className="flex items-start gap-3">
+            <span className="shrink-0 text-3xl">{icon}</span>
+            <div className="min-w-0 flex-1">
+              <Pill accent={accent}>{sess.tag}</Pill>
+              <h3 className={`mt-1.5 font-display text-lg leading-tight ${a.text}`}>{sess.title}</h3>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/45">{sess.focus}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className={`font-display text-2xl leading-none ${a.text}`}>≈{sess.totalMin}</div>
+              <div className="mt-0.5 text-[9px] font-black uppercase tracking-wider text-white/35">MIN</div>
+            </div>
+          </div>
+
+          {/* Allures du jour, calculées depuis le 10 km de référence */}
+          {paces ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {['easy', 'marathon', 'seuil', 'dixk', 'vo2'].map((k) => (
+                <span key={k} className="rounded-lg border border-white/10 bg-white/[.04] px-2 py-1 text-[10px] font-black text-white/60">
+                  {PACE_LABEL[k]} <span className="text-white/85">{fmtPace(paces[k])}</span>
+                  {k === 'easy' && <span className="text-white/85">–{fmtPace(paces.easyMax)}</span>}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <button
+              onClick={goProfile}
+              className="press mt-3 w-full rounded-2xl border border-neon/40 bg-neon/10 p-3 text-center"
+            >
+              <p className="font-display text-sm text-neon">RÉFÉRENCE 10 KM MANQUANTE</p>
+              <p className="mt-1 text-[11px] font-semibold text-white/55">
+                Renseigne ton 10 km actuel dans Profil : toutes les allures en découlent, comme les charges découlent du 1RM.
+              </p>
+            </button>
+          )}
+
+          <button
+            onClick={() => setOpenWhy((v) => !v)}
+            className="press mt-3 w-full rounded-xl border border-white/12 bg-white/[.04] py-2 text-[10px] font-black uppercase tracking-wider text-white/45"
+          >
+            {openWhy ? '▲ Masquer' : '▼ Pourquoi cette séance'}
+          </button>
+          {openWhy && (
+            <p className="mt-2 rounded-2xl border border-white/[.08] bg-white/[.03] p-3 text-[11px] font-medium leading-relaxed text-white/60">
+              {sess.why}
+            </p>
+          )}
+        </div>
+
+        {/* Déroulé */}
+        <div className="space-y-1.5 px-4 pb-4">
+          {sess.blocks.map((b, i) => {
+            const key = runLogKey(type, i);
+            const checked = !!logs[key];
+            return (
+              <button
+                key={i}
+                onClick={() => { toggleSet(dayKey, key, !checked); vibrate(checked ? 0 : 35); }}
+                className={`press flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                  checked ? 'border-lime2/45 bg-lime2/[.09]' : 'border-white/10 bg-white/[.035]'
+                }`}
+              >
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 text-base transition-all ${
+                    checked ? 'border-lime2 grad-lime text-ink pop' : 'border-white/20 bg-white/[.04]'
+                  }`}
+                >
+                  {checked ? '✓' : RUN_ICON[b.kind]}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[12px] font-extrabold ${checked ? 'text-white/55 strike' : 'text-white/90'}`}>
+                    {b.label}
+                  </p>
+                  <p className="text-[11px] font-bold text-white/55">{b.detail}</p>
+                  {b.sub && <p className="mt-0.5 text-[10px] font-semibold leading-snug text-white/35">{b.sub}</p>}
+                </div>
+                {b.pace && (
+                  <span className={`shrink-0 rounded-lg px-2 py-1 font-display text-[11px] ${a.text}`} style={{ background: a.soft }}>
+                    {b.pace}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* À programmer dans la montre */}
+      <Card accent={accent} className="rise p-4">
+        <p className="font-display text-sm uppercase text-white">⌚ À créer dans Garmin</p>
+        <p className="mt-0.5 text-[11px] font-semibold leading-relaxed text-white/45">
+          Garmin Connect → Entraînement → Séances → Créer. Copie le déroulé ci-dessous, règle les blocs
+          en <b className="text-white/70">durée ou distance</b> et la cible en <b className="text-white/70">allure</b>,
+          puis envoie la séance à la montre.
+        </p>
+        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/[.08] bg-black/30 p-3 text-[11px] font-semibold leading-relaxed text-white/70">
+{runGarminText(sess)}
+        </pre>
+        <button
+          onClick={copy}
+          className={`press mt-2 w-full rounded-2xl border py-3 font-display text-[11px] uppercase tracking-wider ${
+            copied ? 'border-lime2/45 bg-lime2/[.1] text-lime2' : 'border-white/15 bg-white/[.05] text-white/60'
+          }`}
+        >
+          {copied ? '✓ Copié' : '📋 Copier le déroulé'}
+        </button>
+      </Card>
+    </>
+  );
+}
+
+/* ============================================================
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
@@ -1978,6 +2403,8 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
+  // Jours doubles : avant 14 h on ouvre sur la course, après sur la muscu.
+  const [slot, setSlot] = useState(() => (new Date().getHours() < 14 ? 'am' : 'pm'));
   const stripRef = useRef(null);
   const session = PROGRAM[dow];
   const exList = exercisesFor(dow, state);
@@ -1998,9 +2425,28 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
   const cyc = CYCLE[state.week];
   const lastPerfMap = useMemo(() => buildLastPerf(state.perfLog, dKey), [state.perfLog, dKey]);
 
+  /* ---------- Course : créneau du matin des jours doubles, ou journée
+       entière pour le mercredi sprint. ---------- */
+  const runOn = state.settings.run !== false;
+  const runType = runOn ? (session.run || (session.am && slot === 'am' ? session.am.run : null)) : null;
+  const isRun = !!runType;
+  const paces = useMemo(() => runPaces(state.profile.run10k), [state.profile.run10k]);
+  const runSess = useMemo(
+    () => (isRun ? runSession(runType, state.week, state.cycleNo, paces) : null),
+    [isRun, runType, state.week, state.cycleNo, paces]
+  );
+  const runStats = useMemo(() => {
+    if (!runSess) return null;
+    const l = state.logs[dKey] || {};
+    return {
+      total: runSess.blocks.length,
+      done: runSess.blocks.filter((b, i) => l[runLogKey(runType, i)]).length,
+    };
+  }, [runSess, state.logs, dKey, runType]);
+
   // Statistiques du jour
   const stats = useMemo(() => {
-    if (session.off) return { total: 0, done: 0, tonnage: 0 };
+    if (session.off || isRun) return { total: 0, done: 0, tonnage: 0 };
     const logs = state.logs[dKey] || {};
     let total = 0, done = 0, tonnage = 0;
     exList.forEach((ex, exIdx) => {
@@ -2027,7 +2473,7 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
       });
     });
     return { total, done, tonnage };
-  }, [state, dKey, dow, session, cyc, exList, lastPerfMap]);
+  }, [state, dKey, dow, session, cyc, exList, lastPerfMap, isRun]);
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
@@ -2119,6 +2565,8 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 <Pill accent={session.accent}>{session.off ? 'OFF' : `JOUR ${session.num}`}</Pill>
                 <Pill accent={cyc.accent}>SEM. {state.week} · {cyc.name}</Pill>
+                {runOn && isRun && session.am && <Pill accent="lime">🏃 MATIN</Pill>}
+                {runOn && !isRun && session.am && <Pill accent="viol">🏋️ SOIR</Pill>}
                 {!isToday && (
                   <Pill accent="viol">
                     {sessionDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -2126,13 +2574,32 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
                 )}
               </div>
               <p className="font-display text-[11px] uppercase tracking-[.2em] text-white/40">{session.day}</p>
-              <h1 className={`font-display text-2xl leading-tight ${a.text} ${a.glow}`}>{session.title}</h1>
-              <p className="mt-1 text-xs font-semibold text-white/45">{session.focus}</p>
+              <h1 className={`font-display text-2xl leading-tight ${a.text} ${a.glow}`}>
+                {isRun && runSess ? runSess.title : session.title}
+              </h1>
+              <p className="mt-1 text-xs font-semibold text-white/45">
+                {isRun && runSess ? runSess.focus : session.focus}
+              </p>
             </div>
             {isToday && <span className="shrink-0 text-3xl">{allDone ? '🏆' : '🔥'}</span>}
           </div>
 
-          {!session.off && (
+          {!session.off && isRun && runStats && (
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
+                <span className="text-white/45">Progression</span>
+                <span className={runStats.done === runStats.total ? 'text-lime2' : 'text-white/70'}>
+                  {runStats.done} / {runStats.total} blocs
+                </span>
+              </div>
+              <ProgressBar value={runStats.done} total={runStats.total} accent={runStats.done === runStats.total ? 'lime' : session.accent} />
+              <p className="mt-2 text-[11px] font-bold text-white/40">
+                Séance de course — le chrono et les allures sont suivis par la montre.
+              </p>
+            </div>
+          )}
+
+          {!session.off && !isRun && (
             <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
                 <span className="text-white/45">Progression</span>
@@ -2186,6 +2653,31 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
         </div>
       </Card>
 
+      {/* Jour double : course le matin, muscu le soir */}
+      {!session.off && session.am && runOn && (
+        <div className="flex gap-2">
+          {[
+            { id: 'am', label: '🏃 Matin · Course', sub: session.am.run === 'long' ? 'Sortie longue' : 'Qualité 10 km' },
+            { id: 'pm', label: '🏋️ Soir · Muscu', sub: session.title },
+          ].map((o) => {
+            const on = slot === o.id;
+            return (
+              <button
+                key={o.id}
+                onClick={() => setSlot(o.id)}
+                className={`press flex-1 rounded-2xl border p-3 text-left transition-all ${
+                  on ? `${a.grad} border-transparent text-ink` : 'border-white/12 bg-white/[.04] text-white/55'
+                }`}
+                style={on ? { boxShadow: `0 8px 22px -10px ${a.hex}` } : undefined}
+              >
+                <p className="font-display text-[12px] uppercase leading-tight">{o.label}</p>
+                <p className={`truncate text-[10px] font-bold ${on ? 'text-ink/60' : 'text-white/35'}`}>{o.sub}</p>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Jour OFF */}
       {session.off ? (
         <Card accent={session.accent} className="rise p-8 text-center">
@@ -2204,6 +2696,36 @@ function TodayView({ state, setState, toggleSet, setSession, startTimer, openPR,
             ))}
           </div>
         </Card>
+      ) : isRun ? (
+        <>
+          {runStats && runStats.done === runStats.total && (
+            <Card accent="lime" glow className="pop p-5 text-center">
+              <div className="text-4xl">🏁</div>
+              <h3 className="mt-1 font-display text-xl text-lime2 text-glow-lime">SÉANCE BOUCLÉE</h3>
+              <p className="mt-1 text-xs font-bold text-white/50">
+                Les chronos et les allures réelles sont dans Garmin. Mets ton 10 km de référence à jour à chaque semaine DELOAD.
+              </p>
+            </Card>
+          )}
+          <RunCard
+            type={runType}
+            sess={runSess}
+            paces={paces}
+            dayKey={dKey}
+            logs={state.logs[dKey] || {}}
+            toggleSet={toggleSet}
+            goProfile={goProfile}
+            profile={state.profile}
+          />
+          {session.am && (
+            <button
+              onClick={() => setSlot('pm')}
+              className="press w-full rounded-2xl border border-dashed border-white/15 py-3 text-[11px] font-black uppercase tracking-wider text-white/35"
+            >
+              🏋️ Voir la séance de muscu du soir
+            </button>
+          )}
+        </>
       ) : (
         <>
           {allDone && (
@@ -2329,6 +2851,8 @@ function ProgramView({ state }) {
   const [open, setOpen] = useState(new Date().getDay());
   const cyc = CYCLE[state.week];
   const realDow = new Date().getDay();
+  const runOn = state.settings.run !== false;
+  const paces = runPaces(state.profile.run10k);
 
   return (
     <div className="space-y-4">
@@ -2390,7 +2914,21 @@ function ProgramView({ state }) {
 
             {isOpen && !p.off && (
               <div className="space-y-1.5 px-4 pb-4">
-                {exercisesFor(d, state).map((ex, i) => {
+                {runOn && (p.run || p.am) && (() => {
+                  const rs = runSession(p.run || p.am.run, state.week, state.cycleNo, paces);
+                  return (
+                    <div className="flex items-center gap-3 rounded-2xl border border-lime2/30 bg-lime2/[.05] p-3">
+                      <div className="h-8 w-1 shrink-0 rounded-full grad-lime" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-extrabold text-lime2">
+                          {p.am ? '🏃 Matin — ' : '💨 '}{rs.title}
+                        </p>
+                        <p className="truncate text-[10px] font-bold text-white/35">{rs.tag} · ≈{rs.totalMin} min</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {runOn && p.run ? null : exercisesFor(d, state).map((ex, i) => {
                   const isForce = ex.kind === 'force';
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
@@ -2443,6 +2981,69 @@ function ProgramView({ state }) {
 /* ============================================================
    11. VUE — PROFIL / 1RM
    ============================================================ */
+
+/* ---------- Référence de course : le 10 km joue pour la course le rôle
+     du 1RM pour la muscu — toutes les allures en découlent. ---------- */
+function RunReference({ value, onChange }) {
+  const [txt, setTxt] = useState(value ? fmtClock(value) : '');
+  useEffect(() => { setTxt(value ? fmtClock(value) : ''); }, [value]);
+  const paces = runPaces(value);
+
+  const commit = (v) => {
+    setTxt(v);
+    const sec = parseClock(v);
+    if (sec >= 1200 && sec <= 7200) onChange(sec);
+    else if (v === '') onChange(0);
+  };
+
+  return (
+    <Card accent="lime" glow={!!paces} className="rise p-4">
+      <div className="flex items-center gap-3">
+        <span className="shrink-0 text-2xl">🏃</span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base leading-tight text-lime2">10 km de référence</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-white/35">Pilote toutes tes allures</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          type="text" inputMode="numeric" value={txt}
+          onChange={(e) => commit(e.target.value)}
+          placeholder="48:00"
+          className="w-full rounded-xl border border-white/12 bg-white/[.05] px-3 py-2.5 text-center font-display text-2xl text-lime2 outline-none focus:border-lime2/60"
+        />
+        <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-white/35">MIN:SEC</span>
+      </div>
+
+      {paces ? (
+        <>
+          <div className="mt-3 space-y-1">
+            {['easy', 'marathon', 'seuil', 'dixk', 'vo2', 'rep'].map((k) => (
+              <div key={k} className="flex items-center justify-between rounded-xl border border-white/[.08] bg-white/[.03] px-3 py-2">
+                <span className="text-[11px] font-extrabold text-white/70">{PACE_LABEL[k]}</span>
+                <span className="font-display text-[13px] text-white/90">
+                  {fmtPace(paces[k])}{k === 'easy' ? `–${fmtPace(paces.easyMax)}` : ''}
+                  <span className="ml-1 text-[9px] text-white/35">/KM</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/35">
+            Mets cette valeur à jour à chaque semaine DELOAD : un vrai 10 km, l'estimation
+            « prédicteur de course » de la Garmin, ou un test de 20 min à fond — ton allure
+            moyenne sur ce test est très proche de ton allure seuil.
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/40">
+          Entre ton meilleur 10 km récent, ou l'estimation « prédicteur de course » de ta Garmin.
+          Sans repère : cours 30 min à fond, prends ton allure moyenne et ajoute 20 s par kilomètre.
+        </p>
+      )}
+    </Card>
+  );
+}
 
 function OneRMCalc({ onApply }) {
   const [w, setW] = useState('');
@@ -2786,6 +3387,21 @@ function ProfileView({ state, setState, openPR, applyCycleBump }) {
             })}
           </Card>
         </>
+      )}
+
+      {/* Course */}
+      <SectionTitle sub="Le 10 km joue pour la course le rôle du 1RM pour la muscu.">Course</SectionTitle>
+      <Toggle
+        label="Programme de course"
+        desc="Mardi et samedi matin + sprint du mercredi. Désactivé : uniquement la muscu"
+        val={state.settings.run !== false}
+        onChange={(v) => setState((s) => ({ ...s, settings: { ...s.settings, run: v } }))}
+      />
+      {state.settings.run !== false && (
+        <RunReference
+          value={Number(state.profile.run10k) || 0}
+          onChange={(sec) => setRM('run10k', sec)}
+        />
       )}
 
       {/* Calculateur */}
