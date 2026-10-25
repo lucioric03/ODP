@@ -221,8 +221,7 @@ const PROGRAM = {
       { kind: 'force', lift: 'squat', name: 'Back Squat', note: 'Barre haute, ceinture autorisée à partir de 85%.' },
       { kind: 'compound',  name: 'Presse à cuisses',   sets: 3, reps: '6-10', note: 'Amplitude complète, pas de rebond en bas.' },
       { kind: 'isolation', name: 'Leg Extension',      sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
-      { kind: 'isolation', name: 'Leg Curl allongé',   sets: 3, reps: '6-10', note: 'Excentrique contrôlé 3s.' },
-      { kind: 'isolation', name: 'Nordic Curl',        sets: 2, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, mains prêtes à rattraper. Commence à 3 reps : les premières séances donnent de grosses courbatures. C\'est ce qui protège tes ischios du claquage en sprint.' },
+      { kind: 'isolation', name: 'Leg Curl allongé',   sets: 4, reps: '6-10', note: 'Excentrique contrôlé 3s. Quatre séries : c\'est ton seul travail direct d\'ischios, et ce sont eux qui lâchent en sprint.' },
       { kind: 'isolation', name: 'Crunch à la Poulie', sets: 3, reps: '12-15', rest: 45,  note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
       { kind: 'isolation', name: 'Mollets à la Presse', sets: 3, reps: '10-15', rest: 60, note: 'Pointes de pieds sur le bord du plateau. Étirement 2s en bas, extension complète en haut, genoux quasi tendus.' },
     ],
@@ -297,6 +296,7 @@ const PROGRAM_VERSION = 2;
      défaut. Ils comblent les manques d'un programme qui court : ischios
      excentriques, soléaire, tirage et santé d'épaule. ---------- */
 const EXTRA_EXERCISES = [
+  { kind: 'isolation', name: 'Nordic Curl',                  sets: 2, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, pieds bloqués sous une machine et mains prêtes à rattraper. Demande un partenaire ou un point d\'ancrage.' },
   { kind: 'compound',  name: 'Soulevé de Terre Roumain', sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
   { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '10-15', rest: 60, note: 'Genou tendu : cible les jumeaux. Pause 2s en bas, explosion en haut.' },
   { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
