@@ -255,12 +255,13 @@ const PROGRAM = {
   5: {
     day: 'VENDREDI', num: 4, accent: 'lime',
     title: 'Force Deadlift + Dos/Biceps',
-    focus: 'Chaîne postérieure · Dorsaux · Biceps',
+    focus: 'Chaîne postérieure · Dorsaux · Bras',
     exercises: [
       { kind: 'force', lift: 'deadlift', name: 'Soulevé de Terre', note: 'Reset au sol à chaque rep. Pas de traction sur la barre avant le lock du dos.' },
       { kind: 'compound',  name: 'Tirage Vertical Machine',     sets: 4, reps: '6-10', note: 'Amène la barre à la clavicule, poitrine sortie.' },
       { kind: 'compound',  name: 'Tirage Horizontal (Rowing)',  sets: 4, reps: '6-10', note: 'Serre les omoplates 1s.' },
-      { kind: 'isolation', name: 'Curl Biceps Poulie',          sets: 3, reps: '6-10', note: 'Coudes fixes, zéro élan de hanches.' },
+      { kind: 'isolation', name: 'Curl Biceps Poulie',          sets: 3, reps: '6-10', ss: 'A', ssWith: 'Extension Triceps Poulie', note: 'Coudes fixes, zéro élan de hanches. Enchaîné à l\'extension triceps : même poulie, muscles antagonistes, le repos vient après la paire.' },
+      { kind: 'isolation', name: 'Extension Triceps Poulie',    sets: 3, reps: '6-10', ss: 'A', note: 'Coudes verrouillés le long du corps. Seul jour sans poussée : tes triceps sont frais, profites-en.' },
       { kind: 'isolation', name: 'Curl Marteau',                sets: 3, reps: '10-12', rest: 90, note: 'Prise neutre, poignets verrouillés. Cible le brachial et le long supinateur.' },
     ],
   },
@@ -300,7 +301,6 @@ const EXTRA_EXERCISES = [
   { kind: 'compound',  name: 'Soulevé de Terre Roumain', sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
   { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '10-15', rest: 60, note: 'Genou tendu : cible les jumeaux. Pause 2s en bas, explosion en haut.' },
   { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
-  { kind: 'isolation', name: 'Extension Triceps Poulie',     sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
   { kind: 'isolation', name: 'Oiseau Poulie',                sets: 5, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
   { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
   { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', note: 'Charge modérée, focus sur le stretch.' },
