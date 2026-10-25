@@ -229,8 +229,7 @@ const PROGRAM = {
   2: {
     day: 'MARDI', num: 2, accent: 'cyan',
     title: 'Force Bench + Pecs/Triceps',
-    focus: 'Matin : qualité 10 km · Soir : pectoraux & triceps',
-    am: { run: 'quality' },
+    focus: 'Pectoraux · Triceps · Haut du dos',
     exercises: [
       { kind: 'force', lift: 'bench', name: 'Développé Couché', note: 'Pause 1s sur la poitrine en semaine 3.' },
       { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Face Pull', note: 'Étirement complet, coudes à 45°. Enchaîné au face pull : le repos vient après la paire.' },
@@ -242,14 +241,10 @@ const PROGRAM = {
   },
   3: {
     day: 'MERCREDI', num: 3, accent: 'lime',
-    title: 'Sprint & Explosivité',
-    focus: 'Vitesse maximale · Système nerveux — aucune muscu',
-    run: 'sprint',
-    exercises: [
-      { kind: 'cardio', name: 'Échauffement athlétique', sets: 1, reps: '15 min', note: 'Gammes : talons-fesses, montées de genoux, foulées bondissantes, mobilité hanches/chevilles.' },
-      { kind: 'sprint', name: 'Sprints 30-50 m',         sets: 8, reps: '1 sprint', note: 'Départ debout ou 3 appuis. Intensité 95-100%. Repos COMPLET entre chaque.' },
-      { kind: 'cardio', name: 'Retour au calme',         sets: 1, reps: '10 min', note: 'Marche + étirements dynamiques légers.' },
-    ],
+    title: 'Course — séance courte',
+    focus: 'Jambes reposées · Aucune muscu',
+    run: 'short',
+    offWhenNoRun: true,
   },
   4: { off: true, day: 'JEUDI',    accent: 'viol', title: 'REPOS OBLIGATOIRE', focus: 'Sommeil 8h · Protéines · Hydratation' },
   5: {
@@ -327,15 +322,15 @@ const CATALOG_LIST = Array.from(CATALOG.values());
    avec la semaine du cycle (ACCUMULATION → INTENSIFICATION → PEAK →
    DELOAD) et grandit à chaque mésocycle. Rien à décider le jour J.
 
-   Trois sorties par semaine, jamais plus : c'est le maximum compatible
-   avec 5 séances de muscu sans grignoter la force. Les deux sorties
-   exigeantes tombent le matin des jours où le soir travaille le HAUT du
-   corps (mardi, samedi) — jamais la veille ni le jour des squats et
-   soulevés de terre.
+   Deux sorties par semaine. La courte a sa propre journée, le mercredi :
+   48 h après la séance de jambes, 48 h avant le soulevé de terre, sur des
+   jambes reposées — c'est ce qui compte le plus quand on débute la course.
+   La longue tombe le samedi matin, le soir travaillant le haut du corps.
+   Jamais de course exigeante la veille ni le jour des squats et soulevés.
    ============================================================ */
 
-// 2 = mardi matin (qualité) · 3 = mercredi (sprint) · 6 = samedi matin (sortie longue)
-const RUN_DAYS = { 2: 'quality', 3: 'sprint', 6: 'long' };
+// 3 = mercredi (séance courte, journée dédiée) · 6 = samedi matin (sortie longue)
+const RUN_DAYS = { 3: 'short', 6: 'long' };
 
 // Allures dérivées du 10 km (modèle Daniels simplifié : facteur × allure 10 km)
 const PACE_F = { easy: 1.32, easyMax: 1.45, marathon: 1.1, seuil: 1.045, dixk: 1, vo2: 0.965, rep: 0.895 };
@@ -371,107 +366,150 @@ function fmtClock(sec) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/* ---------- Mésocycle de course : 1 = on débute, 4+ = programme de
+     performance. Indépendant du compteur de la muscu. ---------- */
+function runPhaseOf(state) {
+  return Math.max(1, (Number(state.cycleNo) || 1) - (Number(state.runStartCycle) || 1) + 1);
+}
+
 /* ---------- Séance de course du jour.
-     type : 'quality' (mardi) · 'sprint' (mercredi) · 'long' (samedi)
-     week : 1-4 dans le cycle · cycleNo : mésocycle en cours ---------- */
+     type : 'short' (mercredi) · 'long' (samedi)
+     week : 1-4 dans le cycle · cycleNo : mésocycle en cours
+
+     Le programme traverse trois phases. Un coureur débutant ne peut pas
+     encaisser du fractionné : ses muscles suivraient, mais ses tendons et
+     ses os mettent des mois à s'adapter, et c'est là que se produisent les
+     blessures. On construit donc d'abord la capacité à courir, ensuite
+     seulement la vitesse.
+       mésocycles 1-2 : alternance course / marche, rien d'autre
+       mésocycle 3    : course continue, premières accélérations
+       mésocycle 4+   : seuil, allure 10 km, VO2max ---------- */
 function runSession(type, week, cycleNo, p) {
-  const g = Math.min(3, Math.max(0, (Number(cycleNo) || 1) - 1));   // +1 cran par mésocycle, plafonné
-  const alt = (Number(cycleNo) || 1) % 2 === 0;                     // variante un cycle sur deux
+  const c = Math.max(1, Number(cycleNo) || 1);
   const W = Math.min(4, Math.max(1, Number(week) || 1));
-  const at = (k) => (p ? `${fmtPace(p[k])} /km` : '— /km');
+  if (c <= 2) return runBeginner(type, W, c);
+  if (c === 3) return runBuild(type, W, p);
+  return runPerf(type, W, c - 3, p);
+}
+
+const B = (label, detail, pace, sub, kind) => ({ label, detail, pace, sub, kind: kind || 'main' });
+const EFFORT_EASY = 'Tu dois pouvoir tenir une conversation en phrases complètes';
+
+/* ---------- Phases 1 et 2 : apprendre à courir (mésocycles 1 et 2).
+     Course / marche, le bloc de course s'allonge, la marche se raccourcit.
+     Aucune allure imposée : tout se fait à la sensation. ---------- */
+function runBeginner(type, W, c) {
+  // [répétitions, minutes de course, minutes de marche] par semaine de cycle
+  const PLAN = {
+    1: { short: [[6, 2, 2], [6, 3, 2], [5, 4, 2], [5, 3, 2]], long: [[6, 3, 2], [5, 4, 2], [4, 6, 2], [4, 4, 2]] },
+    2: { short: [[4, 6, 2], [3, 9, 2], [2, 14, 2], [3, 6, 2]], long: [[3, 8, 2], [3, 10, 2], [2, 15, 2], [2, 8, 2]] },
+  };
+  const [n, run, walk] = PLAN[c][type][W - 1];
+  const deload = W === 4;
+  const totalRun = n * run;
+
+  const blocks = [
+    B('Échauffement', '5 min de marche rapide', null, 'Démarre lentement : les tendons chauffent plus lentement que les muscles', 'warm'),
+    ...Array.from({ length: n }, (_, i) =>
+      B(`Répétition ${i + 1}/${n}`, `${run} min de course puis ${walk} min de marche`, null,
+        i === 0 ? EFFORT_EASY : 'Même allure que la première : si tu ralentis, c\'est que tu étais trop vite')),
+    B('Retour au calme', '5 min de marche', null, 'Puis mollets et ischios étirés doucement', 'cool'),
+  ];
+
+  return {
+    tag: `${deload ? 'DÉCHARGE · ' : ''}${n} × ${run} MIN`,
+    title: deload ? 'Semaine allégée' : type === 'long' ? 'Sortie longue — course et marche' : 'Séance courte — course et marche',
+    focus: `${totalRun} min de course au total, en ${n} blocs`,
+    needsPaces: false,
+    why: deload
+      ? 'Semaine de décharge : on réduit pour laisser les tendons et les os rattraper leur retard sur le muscle. C\'est pendant ces semaines-là que l\'adaptation se fixe.'
+      : c === 1 && W === 1
+        ? 'Première semaine : l\'objectif n\'est pas de courir vite ni longtemps, c\'est d\'habituer tes tissus à l\'impact. Tu dois finir en te sentant capable d\'en refaire autant. Si tu es essoufflé, ralentis — il n\'y a pas d\'allure trop lente à ce stade.'
+        : 'La marche n\'est pas un échec, c\'est ce qui te permet de courir deux fois par semaine sans te blesser. Chaque séance rallonge le bloc de course : c\'est ça, la progression.',
+    blocks,
+    totalMin: 10 + n * (run + walk),
+  };
+}
+
+/* ---------- Phase 3 : courir en continu (mésocycle 3).
+     La marche disparaît, la durée s'installe, et on réveille la foulée. ---------- */
+function runBuild(type, W, p) {
+  const easy = p ? `${fmtPace(p.easy)}–${fmtPace(p.easyMax)} /km` : null;
+  const tempo = p ? `${fmtPace(p.marathon)} /km` : null;
+  const cool = B('Retour au calme', '5 min de marche', null, null, 'cool');
+  const warm = B('Échauffement', '5 min de marche puis 3 min de course très lente', null, 'La mise en route doit être ennuyeuse', 'warm');
+
+  if (type === 'long') {
+    const min = [25, 30, 35, 20][W - 1];
+    return {
+      tag: `${W === 4 ? 'DÉCHARGE · ' : ''}CONTINU · ${min} MIN`,
+      title: 'Sortie longue — sans marcher',
+      focus: 'Construire la base aérobie',
+      needsPaces: false,
+      why: 'Courir longtemps et lentement développe le réseau de capillaires et les mitochondries. C\'est le travail le plus rentable pour un 10 km, et le moins coûteux en récupération pour ta muscu.',
+      blocks: [warm, B('Course continue', `${min} min sans marcher`, easy, EFFORT_EASY), cool],
+      totalMin: min + 13,
+    };
+  }
+  if (W === 3) {
+    return {
+      tag: 'PREMIER SEUIL · 2 × 5 MIN',
+      title: 'Première séance soutenue',
+      focus: 'Découvrir l\'allure « confortablement dure »',
+      needsPaces: false,
+      why: 'Ta toute première séance de qualité. L\'effort juste : tu peux dire trois mots, pas une phrase. Si tu finis cassé, c\'était trop vite — cette séance doit rester jouable.',
+      blocks: [
+        warm,
+        B('Bloc 1', '5 min soutenu', tempo, 'Trois mots maximum sans reprendre ton souffle'),
+        B('Récupération', '3 min de course très lente', easy, null, 'rec'),
+        B('Bloc 2', '5 min soutenu', tempo, 'Même allure que le bloc 1, pas plus vite'),
+        B('Fin de séance', '5 min en endurance', easy, null, 'cool'),
+        cool,
+      ],
+      totalMin: 34,
+    };
+  }
+  const min = [22, 26, 0, 18][W - 1];
+  return {
+    tag: `${W === 4 ? 'DÉCHARGE · ' : ''}CONTINU · ${min} MIN`,
+    title: W === 4 ? 'Séance allégée' : 'Séance courte — en continu',
+    focus: 'Installer la course continue',
+    needsPaces: false,
+    why: 'Plus de marche : tu cours d\'une traite. L\'allure n\'a aucune importance, seule la durée compte. Les accélérations de fin réveillent la foulée sans fatiguer.',
+    blocks: [
+      warm,
+      B('Course continue', `${min} min sans marcher`, easy, EFFORT_EASY),
+      B('Lignes droites', '4 × 20 s plus rapides', null, 'Récup 1 min de marche entre chaque — relâché, jamais en force'),
+      cool,
+    ],
+    totalMin: min + 18,
+  };
+}
+
+/* ---------- Phase 4 et au-delà : performance sur 10 km.
+     k = 1, 2, 3… à partir du 4e mésocycle. ---------- */
+function runPerf(type, W, k, p) {
+  const g = Math.min(3, Math.max(0, k - 1));
+  const alt = k % 2 === 0;
+  const at = (key) => (p ? `${fmtPace(p[key])} /km` : '— /km');
   const easy = p ? `${fmtPace(p.easy)}–${fmtPace(p.easyMax)} /km` : '— /km';
-  const B = (label, detail, pace, sub, kind) => ({ label, detail, pace, sub, kind: kind || 'main' });
   const warmRun = (min) => B('Échauffement', `${min} min en endurance`, easy, 'Départ très lent, le corps doit avoir chaud avant la première accélération', 'warm');
-  const strides = (n) => B('Accélérations', `${n} × 20 s progressives`, at('rep'), 'Récup 40 s de marche — prépare les jambes à l\'allure rapide', 'warm');
-  const coolRun = (min) => B('Retour au calme', `${min} min en endurance très lente`, easy, 'Obligatoire : c\'est là que la séance se digère', 'cool');
+  const strides = (n) => B('Accélérations', `${n} × 20 s progressives`, at('rep'), 'Récup 40 s de marche', 'warm');
+  const coolRun = (min) => B('Retour au calme', `${min} min très lentes`, easy, 'Obligatoire : c\'est là que la séance se digère', 'cool');
   const reps = (n, label, detail, pace, sub) =>
     Array.from({ length: n }, (_, i) => B(`${label} ${i + 1}/${n}`, detail, pace, sub));
 
-  if (type === 'quality') {
-    if (W === 1) {
-      const m = Math.min(12, 8 + 2 * g);
-      return {
-        tag: `SEUIL · 2 × ${m} min`,
-        title: 'Seuil — le moteur du 10 km',
-        focus: 'Repousse le seuil lactique : l\'allure que tu tiens une heure',
-        why: 'Le seuil est le déterminant n°1 du chrono sur 10 km. Effort « confortablement dur » : tu peux dire trois mots, pas une phrase. Si tu finis cassé, c\'était trop vite.',
-        blocks: [
-          warmRun(12), strides(4),
-          B('Bloc 1', `${m} min au seuil`, at('seuil'), 'Allure régulière, pas de départ trop rapide'),
-          B('Récupération', '2 min de trot', easy, null, 'rec'),
-          B('Bloc 2', `${m} min au seuil`, at('seuil'), 'Même allure que le bloc 1, pas plus vite'),
-          coolRun(8),
-        ],
-        totalMin: 12 + 3 + 2 * m + 2 + 8,
-      };
-    }
-    if (W === 2) {
-      const n = Math.min(6, 4 + g);
-      return {
-        tag: `ALLURE 10 KM · ${n} × 1000 m`,
-        title: 'Allure course — ancrage du chrono',
-        focus: 'Apprendre à ton corps l\'allure exacte de ton objectif',
-        why: 'Travailler à l\'allure de course rend cette vitesse automatique et économique. La dernière répétition doit être la plus rapide, jamais la plus lente.',
-        blocks: [
-          warmRun(12), strides(4),
-          ...reps(n, 'Répétition', '1000 m à allure 10 km', at('dixk'), 'Récup 90 s de trot entre chaque'),
-          coolRun(8),
-        ],
-        totalMin: 12 + 3 + Math.round(n * 5.5) + 8,
-      };
-    }
-    if (W === 3) {
-      if (alt) {
-        const n = Math.min(10, 8 + g);
-        return {
-          tag: `VITESSE · ${n} × 400 m`,
-          title: 'VO2max court — cylindrée maximale',
-          focus: 'Fractionné court et vif, peu de dégâts musculaires',
-          why: 'Les 400 m sollicitent le VO2max avec très peu de casse musculaire : c\'est la version la plus compatible avec une semaine de muscu chargée.',
-          blocks: [
-            warmRun(15), strides(4),
-            ...reps(n, 'Répétition', '400 m rapide mais relâché', at('rep'), 'Récup 90 s de trot — la foulée doit rester ample'),
-            coolRun(10),
-          ],
-          totalMin: 15 + 3 + n * 3 + 10,
-        };
-      }
-      const n = Math.min(6, 5 + g);
-      return {
-        tag: `VO2MAX · ${n} × 800 m`,
-        title: 'VO2max — le plafond aérobie',
-        focus: 'La séance qui fait monter la cylindrée',
-        why: 'Trois à cinq minutes d\'effort par répétition, c\'est la zone qui développe le plus le VO2max. C\'est la séance la plus dure du cycle : elle tombe en semaine PEAK, quand la muscu est en singles et laisse de la place.',
-        blocks: [
-          warmRun(15), strides(4),
-          ...reps(n, 'Répétition', '800 m à allure 3-5 km', at('vo2'), 'Récup 2 min 30 de trot'),
-          coolRun(10),
-        ],
-        totalMin: 15 + 3 + n * 6 + 10,
-      };
-    }
-    return {
-      tag: 'DELOAD · 25 min + lignes droites',
-      title: 'Régénération active',
-      focus: 'Volume coupé, vitesse entretenue',
-      why: 'On garde le geste rapide sans aucune fatigue : c\'est la semaine où les adaptations des trois précédentes se transforment en chrono.',
-      blocks: [
-        B('Endurance', '25 min très souple', easy, 'Tu dois pouvoir tenir une conversation entière', 'warm'),
-        B('Lignes droites', '6 × 20 s rapides', at('rep'), 'Récup 60 s de marche — relâché, aucune douleur'),
-        coolRun(5),
-      ],
-      totalMin: 38,
-    };
-  }
-
   if (type === 'long') {
-    const base = Math.min(65, 45 + 5 * g);
+    // Reprise en douceur après la phase d'apprentissage : 35 min en fin de
+    // mésocycle 3, donc on repart de 38 et on monte de 6 min par bloc.
+    const base = Math.min(62, 38 + 6 * g);
     if (W === 1) {
       return {
-        tag: `SORTIE LONGUE · ${base} min`,
+        tag: `SORTIE LONGUE · ${base} MIN`,
         title: 'Sortie longue — la base aérobie',
         focus: 'Capillarisation, mitochondries, économie de course',
-        why: 'Tout en endurance fondamentale, même si ça paraît lent : c\'est ce qui construit le moteur sans coûter de récupération à la muscu. Tu sors de la séance en te sentant capable d\'en refaire autant.',
+        needsPaces: true,
+        why: 'Tout en endurance fondamentale, même si ça paraît lent : c\'est ce qui construit le moteur sans coûter de récupération à la muscu.',
         blocks: [
           B('Sortie', `${base} min en endurance`, easy, 'Jamais essoufflé. Si tu dois forcer, ralentis', 'warm'),
           B('Lignes droites', '4 × 20 s', at('rep'), 'À la toute fin, pour réveiller la foulée'),
@@ -482,9 +520,10 @@ function runSession(type, week, cycleNo, p) {
     if (W === 2) {
       const m = 8 + g;
       return {
-        tag: `LONGUE + ALLURE · 2 × ${m} min`,
+        tag: `LONGUE + ALLURE · 2 × ${m} MIN`,
         title: 'Sortie longue avec allure marathon',
         focus: 'Courir vite sur jambes déjà fatiguées',
+        needsPaces: true,
         why: 'Placer l\'allure soutenue en fin de sortie reproduit exactement ce que tu vivras sur les trois derniers kilomètres d\'un 10 km.',
         blocks: [
           B('Endurance', `${base - 2 * m - 5} min en endurance`, easy, null, 'warm'),
@@ -499,12 +538,13 @@ function runSession(type, week, cycleNo, p) {
     if (W === 3) {
       const m = 10 + g;
       return {
-        tag: `LONGUE PROGRESSIVE · ${m} min seuil`,
+        tag: `LONGUE PROGRESSIVE · ${m} MIN SEUIL`,
         title: 'Sortie longue à finish rapide',
         focus: 'Negative split : finir plus vite qu\'on a commencé',
-        why: 'Finir au seuil sur des jambes vidées est le meilleur entraînement mental et physiologique pour un 10 km. C\'est aussi la séance qui transforme la base des semaines 1 et 2 en vitesse.',
+        needsPaces: true,
+        why: 'Finir au seuil sur des jambes vidées est le meilleur entraînement, mental et physiologique, pour un 10 km.',
         blocks: [
-          B('Endurance', `${base - m} min en endurance`, easy, 'Vraiment lent : tu dois garder la dernière partie en réserve', 'warm'),
+          B('Endurance', `${base - m} min en endurance`, easy, 'Vraiment lent : garde la fin en réserve', 'warm'),
           B('Finish', `${m} min au seuil`, at('seuil'), 'Accélération progressive, sans sprint final'),
           coolRun(6),
         ],
@@ -512,76 +552,95 @@ function runSession(type, week, cycleNo, p) {
       };
     }
     return {
-      tag: 'DELOAD · 30 min',
+      tag: 'DÉCHARGE · 30 MIN',
       title: 'Sortie courte de récupération',
       focus: 'Tourner les jambes, rien de plus',
+      needsPaces: false,
       why: 'Semaine de décharge : la course sert seulement à garder l\'habitude et à accélérer la récupération de la muscu.',
       blocks: [B('Sortie', '30 min très souple', easy, 'Aucune accélération', 'warm')],
       totalMin: 30,
     };
   }
 
-  // ---- SPRINT (mercredi) : vitesse maximale, aucun compromis avec la fatigue
-  const warmSprint = [
-    B('Échauffement', '12 min en endurance', easy, null, 'warm'),
-    B('Gammes athlétiques', 'Talons-fesses, montées de genoux, pas chassés, foulées bondissantes', null, '2 × 20 m chacune', 'warm'),
-    B('Accélérations', '3 × 50 m progressives', at('rep'), 'Récup marche — monte en vitesse palier par palier', 'warm'),
-  ];
+  // ---- Séance courte : la qualité du bloc
   if (W === 1) {
-    if (alt) {
-      const n = Math.min(10, 8 + g);
-      return {
-        tag: `CÔTES · ${n} × 10 s`,
-        title: 'Sprints en côte — puissance sans casse',
-        focus: 'Force spécifique et économie de course',
-        why: 'La côte limite la vitesse d\'allongement musculaire : on développe la puissance de poussée avec beaucoup moins de courbatures qu\'à plat. C\'est la variante qui protège le mieux ta séance de jambes.',
-        blocks: [...warmSprint, ...reps(n, 'Côte', '10 s à fond sur pente 8-10 %', null, 'Retour en marchant, 2 min de récup complète'), coolRun(10)],
-        totalMin: 12 + 10 + n * 3 + 10,
-      };
-    }
+    const m = Math.min(12, 8 + 2 * g);
     return {
-      tag: 'SPRINT · 8 × 40 m',
-      title: 'Vitesse maximale',
-      focus: 'Qualité pure : chaque sprint doit être le plus rapide',
-      why: 'La vitesse maximale se travaille frais et se perd vite. Récupération complète entre chaque : dès que le chrono baisse, la séance est finie.',
-      blocks: [...warmSprint, ...reps(8, 'Sprint', '40 m départ debout', null, 'Récup complète 2 min 30 — marche, pas de trot'), coolRun(10)],
-      totalMin: 12 + 10 + 24 + 10,
+      tag: `SEUIL · 2 × ${m} MIN`,
+      title: 'Seuil — le moteur du 10 km',
+      focus: 'Repousse le seuil lactique : l\'allure que tu tiens une heure',
+      needsPaces: true,
+      why: 'Le seuil est le déterminant n°1 du chrono sur 10 km. Effort « confortablement dur » : tu peux dire trois mots, pas une phrase.',
+      blocks: [
+        warmRun(12), strides(4),
+        B('Bloc 1', `${m} min au seuil`, at('seuil'), 'Allure régulière, pas de départ trop rapide'),
+        B('Récupération', '2 min de trot', easy, null, 'rec'),
+        B('Bloc 2', `${m} min au seuil`, at('seuil'), 'Même allure que le bloc 1'),
+        coolRun(8),
+      ],
+      totalMin: 12 + 3 + 2 * m + 2 + 8,
     };
   }
   if (W === 2) {
-    const n = Math.min(8, 6 + g);
+    const n = Math.min(6, 4 + g);
     return {
-      tag: `SPRINT · ${n} × 60 m`,
-      title: 'Vitesse lancée',
-      focus: 'Tenir la vitesse maximale plus longtemps',
-      why: 'Sur 60 m, tu atteins ta vitesse maximale puis tu dois la maintenir : c\'est ce qui transfère le plus à l\'économie de course sur 10 km.',
-      blocks: [...warmSprint, ...reps(n, 'Sprint', '60 m : 20 m de mise en action puis 40 m lancés', null, 'Récup complète 3 min'), coolRun(10)],
-      totalMin: 12 + 10 + n * 4 + 10,
+      tag: `ALLURE 10 KM · ${n} × 1000 M`,
+      title: 'Allure course — ancrage du chrono',
+      focus: 'Apprendre à ton corps l\'allure exacte de ton objectif',
+      needsPaces: true,
+      why: 'Travailler à l\'allure de course rend cette vitesse automatique et économique. La dernière répétition doit être la plus rapide.',
+      blocks: [
+        warmRun(12), strides(4),
+        ...reps(n, 'Répétition', '1000 m à allure 10 km', at('dixk'), 'Récup 90 s de trot'),
+        coolRun(8),
+      ],
+      totalMin: 12 + 3 + Math.round(n * 5.5) + 8,
     };
   }
   if (W === 3) {
-    const n = Math.min(6, 4 + g);
+    if (alt) {
+      const n = Math.min(10, 8 + g);
+      return {
+        tag: `VITESSE · ${n} × 400 M`,
+        title: 'VO2max court — cylindrée maximale',
+        focus: 'Fractionné court et vif, peu de dégâts musculaires',
+        needsPaces: true,
+        why: 'Les 400 m sollicitent le VO2max avec très peu de casse musculaire : la version la plus compatible avec une semaine de muscu chargée.',
+        blocks: [
+          warmRun(15), strides(4),
+          ...reps(n, 'Répétition', '400 m rapide mais relâché', at('rep'), 'Récup 90 s de trot'),
+          coolRun(10),
+        ],
+        totalMin: 15 + 3 + n * 3 + 10,
+      };
+    }
+    const n = Math.min(6, 5 + g);
     return {
-      tag: `SPRINT · 4 × 30 m + ${n} × 60 m`,
-      title: 'Explosivité et vitesse maximale',
-      focus: 'Semaine PEAK : le système nerveux est chaud, on en profite',
-      why: 'Départs arrêtés pour la force explosive, puis lancés pour la vitesse pure. Cette séance tombe la même semaine que tes singles lourds : le système nerveux est déjà affûté.',
+      tag: `VO2MAX · ${n} × 800 M`,
+      title: 'VO2max — le plafond aérobie',
+      focus: 'La séance qui fait monter la cylindrée',
+      needsPaces: true,
+      why: 'Trois à cinq minutes d\'effort par répétition : la zone qui développe le plus le VO2max. Elle tombe en semaine PEAK, quand la muscu est en singles et laisse de la place.',
       blocks: [
-        ...warmSprint,
-        ...reps(4, 'Départ arrêté', '30 m départ 3 appuis', null, 'Récup 2 min'),
-        ...reps(n, 'Lancé', '60 m avec 20 m d\'élan', null, 'Récup complète 3 min'),
+        warmRun(15), strides(4),
+        ...reps(n, 'Répétition', '800 m à allure 3-5 km', at('vo2'), 'Récup 2 min 30 de trot'),
         coolRun(10),
       ],
-      totalMin: 12 + 10 + 8 + n * 4 + 10,
+      totalMin: 15 + 3 + n * 6 + 10,
     };
   }
   return {
-    tag: 'DELOAD · 5 × 30 m',
-    title: 'Entretien de la vitesse',
-    focus: 'Rapide mais sans forcer',
-    why: 'Semaine de décharge : on garde le geste vif à 90 % d\'intensité, sans jamais chercher le chrono.',
-    blocks: [...warmSprint, ...reps(5, 'Sprint', '30 m à 90 % d\'intensité', null, 'Récup 2 min'), coolRun(8)],
-    totalMin: 12 + 10 + 15 + 8,
+    tag: 'DÉCHARGE · 25 MIN',
+    title: 'Régénération active',
+    focus: 'Volume coupé, vitesse entretenue',
+    needsPaces: false,
+    why: 'On garde le geste rapide sans aucune fatigue : la semaine où les adaptations des trois précédentes se transforment en chrono.',
+    blocks: [
+      B('Endurance', '25 min très souple', easy, 'Conversation entière possible', 'warm'),
+      B('Lignes droites', '6 × 20 s rapides', at('rep'), 'Récup 60 s de marche'),
+      coolRun(5),
+    ],
+    totalMin: 38,
   };
 }
 
@@ -1178,6 +1237,9 @@ const DEFAULT_STATE = {
   setsOverrides: {},  // { "<jour>|Nom de l'exercice": nombre de séries }
   dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
   programVersion: PROGRAM_VERSION,
+  runStartCycle: 1,   // mésocycle de muscu où la course a démarré : la
+                      // progression course part de zéro même si la muscu
+                      // en est déjà à son troisième bloc
   perfLog: {},        // { 'YYYY-MM-DD': { "Nom exo": [{ w, r }, ...] } } — charges & reps réalisées
   sessions: {},       // { 'YYYY-MM-DD': { start, end } } — chrono de séance
   missed: {},         // { 'YYYY-MM-DD': true } — séances déclarées loupées
@@ -1247,6 +1309,8 @@ function loadState() {
       sessions: parsed.sessions || {},
       missed: parsed.missed || {},
       fails: parsed.fails || {},
+      // Première ouverture depuis l'ajout de la course : elle démarre ici.
+      runStartCycle: parsed.runStartCycle || parsed.cycleNo || 1,
       nutrition: { ...DEFAULT_STATE.nutrition, ...(parsed.nutrition || {}) },
     };
   } catch (e) {
@@ -2449,7 +2513,13 @@ function RunCard({ type, sess, paces, dayKey, logs, toggleSet, goProfile, profil
           </div>
 
           {/* Allures du jour, calculées depuis le 10 km de référence */}
-          {paces ? (
+          {!sess.needsPaces ? (
+            <p className="mt-3 rounded-2xl border border-white/12 bg-white/[.04] p-3 text-[11px] font-medium leading-relaxed text-white/55">
+              <b className="text-white/85">Aucune allure à respecter.</b> Tout se fait à la sensation :
+              la bonne allure est celle où tu peux parler. Laisse la montre enregistrer et ne la regarde
+              pas pendant l'effort — à ce stade, courir trop vite est la seule erreur possible.
+            </p>
+          ) : paces ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {['easy', 'marathon', 'seuil', 'dixk', 'vo2'].map((k) => (
                 <span key={k} className="rounded-lg border border-white/10 bg-white/[.04] px-2 py-1 text-[10px] font-black text-white/60">
@@ -2579,11 +2649,13 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
        entière pour le mercredi sprint. ---------- */
   const runOn = state.settings.run !== false;
   const runType = runOn ? (session.run || (session.am && slot === 'am' ? session.am.run : null)) : null;
+  // Mercredi sans programme de course : la journée redevient du repos.
+  const dayOff = session.off || (session.offWhenNoRun && !runOn);
   const isRun = !!runType;
   const paces = useMemo(() => runPaces(state.profile.run10k), [state.profile.run10k]);
   const runSess = useMemo(
-    () => (isRun ? runSession(runType, state.week, state.cycleNo, paces) : null),
-    [isRun, runType, state.week, state.cycleNo, paces]
+    () => (isRun ? runSession(runType, state.week, runPhaseOf(state), paces) : null),
+    [isRun, runType, state.week, state.cycleNo, state.runStartCycle, paces]
   );
   const runStats = useMemo(() => {
     if (!runSess) return null;
@@ -2596,7 +2668,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
 
   // Statistiques du jour
   const stats = useMemo(() => {
-    if (session.off || isRun) return { total: 0, done: 0, tonnage: 0 };
+    if (dayOff || isRun) return { total: 0, done: 0, tonnage: 0 };
     const logs = state.logs[dKey] || {};
     let total = 0, done = 0, tonnage = 0;
     exList.forEach((ex, exIdx) => {
@@ -2652,7 +2724,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
   /* ---------- Bilan de fin de séance : progrès et reculs, exercice par
        exercice, face au même jour de la semaine précédent. ---------- */
   const bilan = useMemo(() => {
-    if (session.off) return [];
+    if (dayOff) return [];
     const today = (state.perfLog && state.perfLog[dKey]) || {};
     const rows = [];
     exList.forEach((ex) => {
@@ -2719,7 +2791,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                <Pill accent={session.accent}>{session.off ? 'OFF' : `JOUR ${session.num}`}</Pill>
+                <Pill accent={session.accent}>{dayOff ? 'OFF' : `JOUR ${session.num}`}</Pill>
                 <Pill accent={cyc.accent}>SEM. {state.week} · {cyc.name}</Pill>
                 {runOn && isRun && session.am && <Pill accent="lime">🏃 MATIN</Pill>}
                 {runOn && !isRun && session.am && <Pill accent="viol">🏋️ SOIR</Pill>}
@@ -2740,7 +2812,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
             {isToday && <span className="shrink-0 text-3xl">{allDone ? '🏆' : '🔥'}</span>}
           </div>
 
-          {!session.off && isRun && runStats && (
+          {!dayOff && isRun && runStats && (
             <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
                 <span className="text-white/45">Progression</span>
@@ -2755,7 +2827,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
             </div>
           )}
 
-          {!session.off && !isRun && (
+          {!dayOff && !isRun && (
             <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
                 <span className="text-white/45">Progression</span>
@@ -2810,7 +2882,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
       </Card>
 
       {/* Jour double : course le matin, muscu le soir */}
-      {!session.off && session.am && runOn && (
+      {!dayOff && session.am && runOn && (
         <div className="flex gap-2">
           {[
             { id: 'am', label: '🏃 Matin · Course', sub: session.am.run === 'long' ? 'Sortie longue' : 'Qualité 10 km' },
@@ -2835,7 +2907,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
       )}
 
       {/* Séance loupée : que faire ensuite */}
-      {!session.off && (isMissed || nothingDone) && (
+      {!dayOff && (isMissed || nothingDone) && (
         isMissed ? (
           <Card accent={tooManyMissed ? 'pink' : 'viol'} className="rise p-4">
             <div className="flex items-center gap-3">
@@ -2892,7 +2964,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
       )}
 
       {/* Jour OFF */}
-      {session.off ? (
+      {dayOff ? (
         <Card accent={session.accent} className="rise p-8 text-center">
           <div className="mb-3 text-6xl">😴</div>
           <h2 className="font-display text-2xl text-white">REPOS OBLIGATOIRE</h2>
@@ -3102,6 +3174,7 @@ function ProgramView({ state }) {
       {/* Les 7 jours */}
       {WEEK_ORDER.map((d, idx) => {
         const p = PROGRAM[d];
+        const pOff = p.off || (p.offWhenNoRun && !runOn);
         const a = ACC[p.accent];
         const isOpen = open === d;
         const isToday = d === realDow;
@@ -3111,27 +3184,27 @@ function ProgramView({ state }) {
             <button onClick={() => setOpen(isOpen ? -1 : d)} className="press w-full p-4 text-left">
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-display text-base ${p.off ? 'border border-white/15 bg-white/[.04] text-white/35' : `${a.grad} text-ink`}`}
-                  style={p.off ? undefined : { boxShadow: `0 8px 22px -10px ${a.hex}` }}
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-display text-base ${pOff ? 'border border-white/15 bg-white/[.04] text-white/35' : `${a.grad} text-ink`}`}
+                  style={pOff ? undefined : { boxShadow: `0 8px 22px -10px ${a.hex}` }}
                 >
-                  {p.off ? '💤' : p.num}
+                  {pOff ? '💤' : p.num}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <p className="font-display text-[10px] uppercase tracking-[.18em] text-white/40">{p.day}</p>
                     {isToday && <Pill accent="lime">AUJOURD'HUI</Pill>}
                   </div>
-                  <h3 className={`truncate font-display text-base leading-tight ${p.off ? 'text-white/45' : 'text-white'}`}>{p.title}</h3>
+                  <h3 className={`truncate font-display text-base leading-tight ${pOff ? 'text-white/45' : 'text-white'}`}>{pOff && p.offWhenNoRun ? 'REPOS' : p.title}</h3>
                   <p className="truncate text-[10px] font-semibold text-white/35">{p.focus}</p>
                 </div>
                 <span className="shrink-0 font-display text-white/25">{isOpen ? '−' : '+'}</span>
               </div>
             </button>
 
-            {isOpen && !p.off && (
+            {isOpen && !pOff && (
               <div className="space-y-1.5 px-4 pb-4">
                 {runOn && (p.run || p.am) && (() => {
-                  const rs = runSession(p.run || p.am.run, state.week, state.cycleNo, paces);
+                  const rs = runSession(p.run || p.am.run, state.week, runPhaseOf(state), paces);
                   return (
                     <div className="flex items-center gap-3 rounded-2xl border border-lime2/30 bg-lime2/[.05] p-3">
                       <div className="h-8 w-1 shrink-0 rounded-full grad-lime" />
@@ -3182,7 +3255,7 @@ function ProgramView({ state }) {
               </div>
             )}
 
-            {isOpen && p.off && (
+            {isOpen && pOff && (
               <div className="px-4 pb-4">
                 <p className="rounded-2xl border border-white/[.08] bg-white/[.025] p-3 text-[11px] font-semibold leading-relaxed text-white/50">
                   Aucune séance. Marche légère, mobilité et sommeil. Le tissu conjonctif récupère plus lentement que le muscle — ce jour n'est pas optionnel.
@@ -3255,8 +3328,9 @@ function RunReference({ value, onChange }) {
         </>
       ) : (
         <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/40">
-          Entre ton meilleur 10 km récent, ou l'estimation « prédicteur de course » de ta Garmin.
-          Sans repère : cours 30 min à fond, prends ton allure moyenne et ajoute 20 s par kilomètre.
+          Inutile si tu débutes la course : les mésocycles 1 à 3 se courent entièrement à la
+          sensation. Fais ton premier test à la fin du mésocycle 3, quand tu tiendras 35 min
+          d'affilée, et entre le résultat ici — les allures du programme en découleront.
         </p>
       )}
     </Card>
