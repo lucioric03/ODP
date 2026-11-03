@@ -2838,15 +2838,85 @@ function RunCard({ type, sess, paces, dayKey, logs, toggleSet, goProfile, profil
 }
 
 /* ============================================================
+   8 quater. DÉPLACER UNE SÉANCE DANS LA SEMAINE
+   ============================================================ */
+
+function DayMover({ dow, state, runOn, onSwap, onReset, onClose }) {
+  const from = sessionFor(dow, state);
+  const custom = Object.keys(state.dayMap || {}).length > 0;
+  const offOf = (ses) => ses.off || (ses.offWhenNoRun && !runOn);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className={`glass-strong slide-up relative flex max-h-[85vh] w-full max-w-md flex-col rounded-t-3xl p-5 sm:rounded-3xl ${ACC.cyan.ring}`}
+        style={{ paddingBottom: 'calc(20px + var(--safe-b))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[10px] uppercase tracking-[.2em] text-white/40">
+              {PROGRAM[dow].day} · {offOf(from) ? 'Repos' : from.title}
+            </p>
+            <h3 className="font-display text-lg leading-tight text-cyan2">Déplacer vers quel jour ?</h3>
+          </div>
+          <button onClick={onClose} className="press h-10 w-10 shrink-0 rounded-xl border border-white/12 bg-white/[.05] font-display text-white/50">✕</button>
+        </div>
+
+        <p className="mb-3 text-[11px] font-semibold leading-relaxed text-white/45">
+          Les deux jours échangent leur séance. Charges, temps de repos et historique suivent.
+        </p>
+
+        <div className="-mx-1 flex-1 space-y-1.5 overflow-y-auto px-1">
+          {WEEK_ORDER.filter((d) => d !== dow).map((d) => {
+            const ses = sessionFor(d, state);
+            const off = offOf(ses);
+            const acc = ACC[ses.accent];
+            return (
+              <button
+                key={d}
+                onClick={() => { onSwap(dow, d); vibrate(35); onClose(); }}
+                className="press flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-3 text-left"
+              >
+                <span className="w-11 shrink-0 font-display text-[11px] uppercase text-white/45">{PROGRAM[d].day.slice(0, 3)}</span>
+                <div className={`h-8 w-1 shrink-0 rounded-full ${off ? 'bg-white/15' : acc.grad}`} />
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-[12px] font-extrabold ${off ? 'text-white/40' : 'text-white/85'}`}>
+                    {off ? 'Repos' : ses.title}
+                  </p>
+                  <p className="truncate text-[10px] font-bold text-white/35">{off ? 'Récupération' : ses.focus}</p>
+                </div>
+                <span className="shrink-0 font-display text-base text-white/25">↔</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {custom && (
+          <button
+            onClick={() => { onReset(); onClose(); }}
+            className="press mt-3 w-full rounded-2xl border border-viol/40 bg-viol/[.1] py-3 font-display text-[11px] uppercase tracking-wider text-viol"
+          >
+            ↺ Remettre toute la semaine d'origine
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    9. VUE — SÉANCE DU JOUR
    ============================================================ */
 
-function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail, lowerRM, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
+function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail, lowerRM, swapDays, resetDays, startTimer, openPR, setRestOverride, setSetsOverride, setDayPlan, setPerf, goProfile }) {
   const realDow = new Date().getDay();
   const [dow, setDow] = useState(realDow);
   const [editing, setEditing] = useState(false);
   // Jours doubles : avant 14 h on ouvre sur la course, après sur la muscu.
   const [slot, setSlot] = useState(() => (new Date().getHours() < 14 ? 'am' : 'pm'));
+  const [moving, setMoving] = useState(false);
   const stripRef = useRef(null);
   const sid = sidFor(dow, state);
   const session = PROGRAM[sid];
@@ -3103,6 +3173,29 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
           )}
         </div>
       </Card>
+
+      {/* Déplacer cette séance dans la semaine */}
+      <button
+        onClick={() => setMoving(true)}
+        className={`press flex w-full items-center justify-center gap-2 rounded-2xl border py-2.5 text-[11px] font-black uppercase tracking-wider ${
+          Object.keys(state.dayMap || {}).length
+            ? 'border-cyan2/40 bg-cyan2/[.08] text-cyan2'
+            : 'border-white/12 bg-white/[.04] text-white/40'
+        }`}
+      >
+        🔀 Changer le jour de cette séance
+      </button>
+
+      {moving && (
+        <DayMover
+          dow={dow}
+          state={state}
+          runOn={runOn}
+          onSwap={swapDays}
+          onReset={resetDays}
+          onClose={() => setMoving(false)}
+        />
+      )}
 
       {/* Jour double : course le matin, muscu le soir */}
       {!dayOff && session.am && runOn && (
@@ -4808,6 +4901,8 @@ function App() {
           setSession={setSession}
           setMissed={setMissed}
           setFail={setFail}
+          swapDays={swapDays}
+          resetDays={resetDays}
           lowerRM={lowerRM}
           startTimer={startTimer}
           openPR={(liftId, prefill) => setPrDialog({ liftId, prefill })}
