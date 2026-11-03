@@ -187,7 +187,7 @@ const LIFTS = [
   { id: 'squat',    label: 'Squat',            short: 'SQ', accent: 'pink', icon: '🏋️' },
   { id: 'bench',    label: 'Développé Couché', short: 'BP', accent: 'cyan', icon: '💪' },
   { id: 'deadlift', label: 'Soulevé de Terre', short: 'DL', accent: 'lime', icon: '⚡' },
-  { id: 'ohp',      label: 'Overhead Press',   short: 'OHP', accent: 'viol', icon: '🔺' },
+  { id: 'ohp',      label: 'Développé Militaire', short: 'DM', accent: 'viol', icon: '🔺' },
 ];
 
 // Mésocycle 4 semaines — % du 1RM, série par série (ramp progressif)
@@ -218,10 +218,10 @@ const PROGRAM = {
     title: 'Force Squat + Bas du Corps',
     focus: 'Quadriceps · Fessiers · Ischios · Mollets',
     exercises: [
-      { kind: 'force', lift: 'squat', name: 'Back Squat', note: 'Barre haute, ceinture autorisée à partir de 85%.' },
+      { kind: 'force', lift: 'squat', name: 'Squat Barre', note: 'Barre haute, ceinture autorisée à partir de 85%.' },
       { kind: 'compound',  name: 'Presse à cuisses',   sets: 3, reps: '6-10', note: 'Amplitude complète, pas de rebond en bas.' },
-      { kind: 'isolation', name: 'Leg Extension',      sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
-      { kind: 'isolation', name: 'Leg Curl allongé',   sets: 4, reps: '6-10', note: 'Excentrique contrôlé 3s. Quatre séries : c\'est ton seul travail direct d\'ischios, et ce sont eux qui lâchent en sprint.' },
+      { kind: 'isolation', name: 'Extension des Quadriceps',      sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
+      { kind: 'isolation', name: 'Flexion des Ischios Allongé',   sets: 4, reps: '6-10', note: 'Excentrique contrôlé 3s. Quatre séries : c\'est ton seul travail direct d\'ischios, et ce sont eux qui lâchent en sprint.' },
       { kind: 'isolation', name: 'Crunch à la Poulie', sets: 3, reps: '12-15', rest: 45,  note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
       { kind: 'isolation', name: 'Mollets à la Presse', sets: 3, reps: '10-15', rest: 60, note: 'Pointes de pieds sur le bord du plateau. Étirement 2s en bas, extension complète en haut, genoux quasi tendus.' },
     ],
@@ -232,8 +232,8 @@ const PROGRAM = {
     focus: 'Pectoraux · Triceps · Haut du dos',
     exercises: [
       { kind: 'force', lift: 'bench', name: 'Développé Couché', note: 'Pause 1s sur la poitrine en semaine 3.' },
-      { kind: 'compound',  name: 'Chest Press Machine',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Face Pull', note: 'Étirement complet, coudes à 45°. Enchaîné au face pull : le repos vient après la paire.' },
-      { kind: 'isolation', name: 'Face Pull',              sets: 3, reps: '12-15', rest: 75, ss: 'A', note: 'Poulie haute, tire vers le front, coudes hauts. Antagoniste de la poussée : zéro temps perdu, et tes épaules tiennent.' },
+      { kind: 'compound',  name: 'Développé Machine',    sets: 3, reps: '6-10', ss: 'A', ssWith: 'Tirage Visage Poulie', note: 'Étirement complet, coudes à 45°. Enchaîné au face pull : le repos vient après la paire.' },
+      { kind: 'isolation', name: 'Tirage Visage Poulie',              sets: 3, reps: '12-15', rest: 75, ss: 'A', note: 'Poulie haute, tire vers le front, coudes hauts. Antagoniste de la poussée : zéro temps perdu, et tes épaules tiennent.' },
       { kind: 'isolation', name: 'Écartés Poulie',         sets: 3, reps: '6-10', note: 'Arc de cercle, léger fléchissement des coudes.' },
       { kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
       { kind: 'finisher',  name: 'Corde à sauter — HIIT',  sets: 1, reps: '10-15 min', dropWhenRunning: true, note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
@@ -266,10 +266,10 @@ const PROGRAM = {
     focus: 'Matin : sortie longue · Soir : deltoïdes, dips & mollets',
     am: { run: 'long' },
     exercises: [
-      { kind: 'force', lift: 'ohp', name: 'Overhead Press', forceSets: 3, note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
+      { kind: 'force', lift: 'ohp', name: 'Développé Militaire', forceSets: 3, note: 'Debout, fessiers et abdos gainés. Tête qui passe sous la barre au lock.' },
       { kind: 'isolation', name: 'Élévations Latérales Machine', sets: 3, reps: '6-10', note: 'Monte jusqu\'à l\'horizontale, descente 3s.' },
       { kind: 'isolation', name: 'Pecs Deck Inversé',            sets: 4, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
-      { kind: 'compound',  name: 'Dips',                         sets: 4, reps: '8-12',  rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
+      { kind: 'compound',  name: 'Dips aux Barres Parallèles',                         sets: 4, reps: '8-12',  rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
       { kind: 'isolation', name: 'Mollets assis',                sets: 3, reps: '12-15', rest: 60, ss: 'A', ssWith: 'Crunch à la Poulie', note: 'Genou plié : cible le soléaire, le muscle le plus chargé en course à pied. Pause 2s en bas, enchaîné aux abdos.' },
       { kind: 'isolation', name: 'Crunch à la Poulie',           sets: 3, reps: '12-15', rest: 45, ss: 'A', note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes. Repos après la paire complète.' },
     ],
@@ -286,20 +286,183 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
      déjà ces ajustements, et sans ça une séance personnalisée masquerait la
      mise à jour. Les charges, les 1RM, les records et l'historique ne sont
      jamais touchés — ils sont indexés par nom d'exercice. ---------- */
-const PROGRAM_VERSION = 2;
+const PROGRAM_VERSION = 3;
 
-/* ---------- Exercices proposés au choix sans figurer dans une séance par
-     défaut. Ils comblent les manques d'un programme qui court : ischios
-     excentriques, soléaire, tirage et santé d'épaule. ---------- */
-const EXTRA_EXERCISES = [
-  { kind: 'isolation', name: 'Nordic Curl',                  sets: 2, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, pieds bloqués sous une machine et mains prêtes à rattraper. Demande un partenaire ou un point d\'ancrage.' },
-  { kind: 'compound',  name: 'Soulevé de Terre Roumain', sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
-  { kind: 'isolation', name: 'Mollets debout',               sets: 3, reps: '10-15', rest: 60, note: 'Genou tendu : cible les jumeaux. Pause 2s en bas, explosion en haut.' },
-  { kind: 'compound',  name: 'Shoulder Press Machine',       sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
-  { kind: 'isolation', name: 'Oiseau Poulie',                sets: 5, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
-  { kind: 'isolation', name: 'Curl Incliné',                 sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
-  { kind: 'isolation', name: 'Rappel Ischios (Leg Curl)',    sets: 3, reps: '6-10', note: 'Charge modérée, focus sur le stretch.' },
+/* ---------- Exercices renommés en français. L'historique étant indexé par
+     nom, on réécrit les anciennes clés au chargement : charges, reps,
+     séances personnalisées, repos et nombres de séries suivent. ---------- */
+const RENAMES = {
+  'Back Squat': 'Squat Barre',
+  'Overhead Press': 'Développé Militaire',
+  'Chest Press Machine': 'Développé Machine',
+  'Leg Extension': 'Extension des Quadriceps',
+  'Leg Curl allongé': 'Flexion des Ischios Allongé',
+  'Face Pull': 'Tirage Visage Poulie',
+  'Dips': 'Dips aux Barres Parallèles',
+  'Nordic Curl': 'Flexion Nordique',
+  'Shoulder Press Machine': 'Développé Épaules Machine',
+  'Mollets debout': 'Mollets Debout',
+  'Mollets assis': 'Mollets Assis',
+  'Rappel Ischios (Leg Curl)': 'Flexion des Ischios Assis',
+  'Sprints 30-50 m': 'Sprints 30-50 m',
+};
+
+const renameOf = (n) => (RENAMES[n] || n);
+
+/* Réécrit toutes les structures indexées par nom d'exercice. */
+function migrateNames(parsed) {
+  const out = { ...parsed };
+  const mapKeyed = (obj, split) => {
+    const next = {};
+    Object.keys(obj || {}).forEach((k) => {
+      if (!split) { next[renameOf(k)] = obj[k]; return; }
+      const i = k.lastIndexOf('|');
+      if (i < 0) { next[k] = obj[k]; return; }
+      next[`${renameOf(k.slice(0, i))}|${k.slice(i + 1)}`] = obj[k];
+    });
+    return next;
+  };
+  const mapPrefixed = (obj) => {           // clés "<id>|Nom"
+    const next = {};
+    Object.keys(obj || {}).forEach((k) => {
+      const i = k.indexOf('|');
+      next[i < 0 ? k : `${k.slice(0, i + 1)}${renameOf(k.slice(i + 1))}`] = obj[k];
+    });
+    return next;
+  };
+
+  out.restOverrides = mapKeyed(parsed.restOverrides, false);
+  out.setsOverrides = mapPrefixed(parsed.setsOverrides);
+
+  const perf = {};
+  Object.keys(parsed.perfLog || {}).forEach((d) => {
+    const day = {};
+    Object.keys(parsed.perfLog[d] || {}).forEach((n) => {
+      day[n.indexOf('__') === 0 ? n : renameOf(n)] = parsed.perfLog[d][n];
+    });
+    perf[d] = day;
+  });
+  out.perfLog = perf;
+
+  const logs = {};
+  Object.keys(parsed.logs || {}).forEach((d) => { logs[d] = mapKeyed(parsed.logs[d], true); });
+  out.logs = logs;
+
+  const fails = {};
+  Object.keys(parsed.fails || {}).forEach((d) => {
+    const day = mapKeyed(parsed.fails[d], true);
+    Object.keys(day).forEach((k) => { if (day[k] && day[k].name) day[k] = { ...day[k], name: renameOf(day[k].name) }; });
+    fails[d] = day;
+  });
+  out.fails = fails;
+
+  const plans = {};
+  Object.keys(parsed.dayPlans || {}).forEach((d) => {
+    plans[d] = (parsed.dayPlans[d] || []).map(renameOf);
+  });
+  out.dayPlans = plans;
+  return out;
+}
+
+/* ---------- Bibliothèque d'exercices : tout ce que propose une salle
+     classique, en français, rangé par groupe musculaire. Elle alimente
+     l'écran « Ajouter un exercice » et sert à construire une séance de
+     zéro. Les exercices du programme en font partie : la séance par
+     défaut n'est qu'une sélection dans cette bibliothèque. ---------- */
+const MUSCLES = ['Pectoraux', 'Dos', 'Épaules', 'Biceps', 'Triceps', 'Quadriceps', 'Ischios & Fessiers', 'Mollets', 'Abdos', 'Cardio'];
+
+const EXERCISE_LIBRARY = [
+  // ---- Pectoraux
+  { group: 'Pectoraux', kind: 'compound',  name: 'Développé Incliné Barre',   sets: 3, reps: '6-10', note: 'Banc à 30°, barre à la clavicule. Coudes à 45°, pas écartés à 90°.' },
+  { group: 'Pectoraux', kind: 'compound',  name: 'Développé Haltères',        sets: 3, reps: '8-12', note: 'Amplitude plus grande qu\'à la barre : descends jusqu\'à l\'étirement.' },
+  { group: 'Pectoraux', kind: 'compound',  name: 'Développé Incliné Haltères', sets: 3, reps: '8-12', note: 'Banc à 30°, paumes légèrement rentrées en haut.' },
+  { group: 'Pectoraux', kind: 'compound',  name: 'Développé Machine',         sets: 3, reps: '6-10', note: 'Étirement complet, coudes à 45°.' },
+  { group: 'Pectoraux', kind: 'isolation', name: 'Écartés Poulie',            sets: 3, reps: '6-10', note: 'Arc de cercle, léger fléchissement des coudes.' },
+  { group: 'Pectoraux', kind: 'isolation', name: 'Écartés Haltères',          sets: 3, reps: '10-12', rest: 75, note: 'Coudes figés en légère flexion, descends jusqu\'à sentir l\'étirement.' },
+  { group: 'Pectoraux', kind: 'isolation', name: 'Pec Deck',                  sets: 3, reps: '10-15', rest: 60, note: 'Contraction 1s au centre, sans écraser les mains l\'une contre l\'autre.' },
+  { group: 'Pectoraux', kind: 'compound',  name: 'Dips aux Barres Parallèles', sets: 4, reps: '8-12', rest: 90, note: 'Buste vertical pour les triceps, penché vers l\'avant pour les pectoraux.' },
+  { group: 'Pectoraux', kind: 'compound',  name: 'Pompes',                    sets: 3, reps: '12-20', rest: 60, note: 'Corps gainé d\'un bloc, coudes à 45°. Lestées si c\'est trop facile.' },
+
+  // ---- Dos
+  { group: 'Dos', kind: 'compound',  name: 'Tirage Vertical Machine',    sets: 4, reps: '6-10', note: 'Amène la barre à la clavicule, poitrine sortie.' },
+  { group: 'Dos', kind: 'compound',  name: 'Tirage Vertical Prise Serrée', sets: 3, reps: '8-12', note: 'Prise neutre serrée : cible le bas des dorsaux.' },
+  { group: 'Dos', kind: 'compound',  name: 'Tractions',                  sets: 4, reps: 'max', rest: 120, note: 'Épaules basses avant de tirer. Élastique ou machine à assistance si besoin.' },
+  { group: 'Dos', kind: 'compound',  name: 'Tirage Horizontal (Rowing)', sets: 4, reps: '6-10', note: 'Serre les omoplates 1s.' },
+  { group: 'Dos', kind: 'compound',  name: 'Rowing Barre',               sets: 4, reps: '6-10', rest: 120, note: 'Buste à 45°, dos neutre, barre au nombril. Zéro élan de hanches.' },
+  { group: 'Dos', kind: 'compound',  name: 'Rowing Haltère Unilatéral',  sets: 3, reps: '8-12', rest: 90, note: 'Genou et main sur le banc, tire le coude vers la hanche.' },
+  { group: 'Dos', kind: 'isolation', name: 'Tirage Bras Tendus',         sets: 3, reps: '12-15', rest: 60, note: 'Bras quasi tendus, le mouvement part des dorsaux, pas des triceps.' },
+  { group: 'Dos', kind: 'isolation', name: 'Pull-Over Poulie',           sets: 3, reps: '12-15', rest: 60, note: 'Grand arc au-dessus de la tête, étirement maximal des dorsaux.' },
+  { group: 'Dos', kind: 'isolation', name: 'Shrugs Haltères',            sets: 3, reps: '12-15', rest: 60, note: 'Monte les épaules vers les oreilles, pause 1s, zéro rotation.' },
+  { group: 'Dos', kind: 'isolation', name: 'Extension Lombaire',         sets: 3, reps: '12-15', rest: 60, note: 'Banc à 45°, remonte jusqu\'à l\'alignement, sans hyperextension.' },
+
+  // ---- Épaules
+  { group: 'Épaules', kind: 'compound',  name: 'Développé Épaules Machine',     sets: 3, reps: '6-10', note: 'Ne verrouille pas complètement les coudes.' },
+  { group: 'Épaules', kind: 'compound',  name: 'Développé Haltères Épaules',    sets: 3, reps: '8-12', rest: 90, note: 'Assis dossier droit, coudes légèrement en avant du buste.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Élévations Latérales Machine',  sets: 3, reps: '6-10', note: 'Monte jusqu\'à l\'horizontale, descente 3s.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Élévations Latérales Haltères', sets: 4, reps: '12-15', rest: 60, note: 'Léger, coudes qui mènent le mouvement, jamais d\'élan.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Élévations Frontales',          sets: 3, reps: '12-15', rest: 60, note: 'Jusqu\'à hauteur d\'yeux, buste immobile.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Pecs Deck Inversé',             sets: 4, reps: '12-15', rest: 60, note: 'Bras quasi tendus, ouvre depuis les omoplates et non les mains.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Oiseau Poulie',                 sets: 4, reps: '12-15', rest: 60, note: 'Buste penché, tire vers l\'arrière sans hausser les épaules.' },
+  { group: 'Épaules', kind: 'isolation', name: 'Tirage Visage Poulie',          sets: 3, reps: '12-15', rest: 75, note: 'Poulie haute, tire vers le front, coudes hauts. Santé d\'épaule et posture.' },
+  { group: 'Épaules', kind: 'compound',  name: 'Rowing Menton',                 sets: 3, reps: '10-12', rest: 75, note: 'Prise largeur d\'épaules, coudes hauts. Arrête au sternum si l\'épaule tire.' },
+
+  // ---- Biceps
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Biceps Poulie',   sets: 3, reps: '6-10', note: 'Coudes fixes, zéro élan de hanches.' },
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Barre',           sets: 3, reps: '8-12', rest: 90, note: 'Barre EZ si les poignets tirent. Coudes collés au buste.' },
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Haltères',        sets: 3, reps: '10-12', rest: 75, note: 'Supination progressive : petit doigt qui monte en fin de course.' },
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Marteau',         sets: 3, reps: '10-12', rest: 90, note: 'Prise neutre, poignets verrouillés. Cible le brachial et le long supinateur.' },
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Incliné',         sets: 3, reps: '10-12', rest: 90, note: 'Dossier à 45-60°, bras derrière le buste : étirement maximal du biceps.' },
+  { group: 'Biceps', kind: 'isolation', name: 'Curl Pupitre',         sets: 3, reps: '10-12', rest: 75, note: 'Bras bloqués sur le pupitre, descente complète mais contrôlée.' },
+
+  // ---- Triceps
+  { group: 'Triceps', kind: 'isolation', name: 'Extension Triceps Poulie',   sets: 3, reps: '6-10', note: 'Coudes verrouillés le long du corps.' },
+  { group: 'Triceps', kind: 'isolation', name: 'Extension Triceps Corde',    sets: 3, reps: '12-15', rest: 60, note: 'Écarte la corde en fin de mouvement, contraction 1s.' },
+  { group: 'Triceps', kind: 'isolation', name: 'Extension Triceps Unilatéral Derrière la Tête (assis)', sets: 3, reps: '10-12', rest: 90, note: 'Coude pointé vers le plafond et immobile. Étirement complet en bas.' },
+  { group: 'Triceps', kind: 'isolation', name: 'Barre au Front',             sets: 3, reps: '8-12', rest: 90, note: 'Barre EZ, coudes fixes, descends au-dessus du front.' },
+  { group: 'Triceps', kind: 'compound',  name: 'Dips Machine',               sets: 3, reps: '10-12', rest: 75, note: 'Buste droit, coudes serrés : tout va dans les triceps.' },
+  { group: 'Triceps', kind: 'isolation', name: 'Extension Nuque Haltère',    sets: 3, reps: '10-12', rest: 75, note: 'Un haltère à deux mains, coudes serrés vers le plafond.' },
+
+  // ---- Quadriceps
+  { group: 'Quadriceps', kind: 'compound',  name: 'Presse à cuisses',        sets: 3, reps: '6-10', note: 'Amplitude complète, pas de rebond en bas.' },
+  { group: 'Quadriceps', kind: 'isolation', name: 'Extension des Quadriceps', sets: 3, reps: '6-10', note: '1s de contraction en haut.' },
+  { group: 'Quadriceps', kind: 'compound',  name: 'Hack Squat',              sets: 3, reps: '8-12', rest: 120, note: 'Pieds au milieu du plateau, descente contrôlée jusqu\'à la parallèle.' },
+  { group: 'Quadriceps', kind: 'compound',  name: 'Fentes Haltères',         sets: 3, reps: '10-12', rest: 90, note: 'Grand pas, genou arrière vers le sol, buste droit.' },
+  { group: 'Quadriceps', kind: 'compound',  name: 'Squat Bulgare',           sets: 3, reps: '8-12', rest: 90, note: 'Pied arrière sur un banc. Buste légèrement penché pour les fessiers.' },
+  { group: 'Quadriceps', kind: 'compound',  name: 'Squat Gobelet',           sets: 3, reps: '10-15', rest: 75, note: 'Haltère contre la poitrine, coudes à l\'intérieur des genoux.' },
+
+  // ---- Ischios & fessiers
+  { group: 'Ischios & Fessiers', kind: 'isolation', name: 'Flexion des Ischios Allongé', sets: 4, reps: '6-10', note: 'Excentrique contrôlé 3s.' },
+  { group: 'Ischios & Fessiers', kind: 'isolation', name: 'Flexion des Ischios Assis',   sets: 3, reps: '10-12', rest: 75, note: 'Dos plaqué, amplitude complète. Position assise : plus d\'étirement.' },
+  { group: 'Ischios & Fessiers', kind: 'compound',  name: 'Soulevé de Terre Roumain',    sets: 3, reps: '8-10', rest: 120, note: 'Jambes quasi tendues, bassin qui recule, dos neutre. Descends jusqu\'à l\'étirement des ischios, pas plus bas.' },
+  { group: 'Ischios & Fessiers', kind: 'isolation', name: 'Flexion Nordique',            sets: 2, reps: '4-6', rest: 120, note: 'Descente freinée 4-5 s, pieds bloqués et mains prêtes à rattraper. Demande un partenaire ou un point d\'ancrage.' },
+  { group: 'Ischios & Fessiers', kind: 'compound',  name: 'Hip Thrust',                  sets: 3, reps: '8-12', rest: 120, note: 'Haut du dos sur le banc, menton rentré, pause 1s en haut.' },
+  { group: 'Ischios & Fessiers', kind: 'compound',  name: 'Good Morning',                sets: 3, reps: '8-12', rest: 120, note: 'Charge légère, dos neutre, le mouvement part des hanches.' },
+
+  // ---- Mollets
+  { group: 'Mollets', kind: 'isolation', name: 'Mollets à la Presse', sets: 3, reps: '10-15', rest: 60, note: 'Pointes de pieds sur le bord du plateau. Étirement 2s en bas, extension complète en haut, genoux quasi tendus.' },
+  { group: 'Mollets', kind: 'isolation', name: 'Mollets Debout',      sets: 3, reps: '10-15', rest: 60, note: 'Genou tendu : cible les jumeaux. Pause 2s en bas, explosion en haut.' },
+  { group: 'Mollets', kind: 'isolation', name: 'Mollets Assis',       sets: 3, reps: '12-15', rest: 60, note: 'Genou plié : cible le soléaire, le muscle le plus chargé en course à pied. Pause 2s en bas.' },
+
+  // ---- Abdos
+  { group: 'Abdos', kind: 'isolation', name: 'Crunch à la Poulie',        sets: 3, reps: '12-15', rest: 45, note: 'Enroule la colonne vertèbre par vertèbre, hanches fixes.' },
+  { group: 'Abdos', kind: 'isolation', name: 'Relevé de Jambes Suspendu', sets: 3, reps: '10-15', rest: 60, note: 'Bassin qui s\'enroule en fin de montée, zéro balancier.' },
+  { group: 'Abdos', kind: 'isolation', name: 'Gainage Planche',           sets: 3, reps: '45-60 s', rest: 45, note: 'Fessiers serrés, bassin rétroversé. Arrête dès que le bas du dos creuse.' },
+  { group: 'Abdos', kind: 'isolation', name: 'Roulette Abdominale',       sets: 3, reps: '8-12', rest: 60, note: 'Dos qui ne creuse jamais. Commence à genoux, amplitude courte.' },
+  { group: 'Abdos', kind: 'isolation', name: 'Crunch Machine',            sets: 3, reps: '12-15', rest: 45, note: 'Enroulement du buste, pas une flexion de hanches.' },
+
+  // ---- Cardio & finisher
+  { group: 'Cardio', kind: 'finisher', name: 'Corde à sauter — HIIT', sets: 1, reps: '10-15 min', note: '30s ON / 30s OFF. Reste sur l\'avant du pied.' },
+  { group: 'Cardio', kind: 'finisher', name: 'Rameur',                sets: 1, reps: '10 min', note: 'Jambes, buste, bras dans cet ordre. Retour inverse.' },
+  { group: 'Cardio', kind: 'finisher', name: 'Vélo Assault',          sets: 1, reps: '8-10 min', note: '20s à fond / 40s souple. Brutal, efficace, court.' },
+  { group: 'Cardio', kind: 'cardio',   name: 'Tapis Incliné Marche',  sets: 1, reps: '15-20 min', note: 'Pente 10-12 %, sans t\'accrocher aux poignées. Cardio sans impact.' },
 ];
+
+// Groupe musculaire d'un exercice, pour les filtres de la bibliothèque
+const GROUP_OF = (() => {
+  const m = {};
+  EXERCISE_LIBRARY.forEach((ex) => { m[ex.name] = ex.group; });
+  return m;
+})();
 
 const CATALOG = (() => {
   const m = new Map();
@@ -308,7 +471,7 @@ const CATALOG = (() => {
     if (!p || p.off || !p.exercises) return;
     p.exercises.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
   });
-  EXTRA_EXERCISES.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
+  EXERCISE_LIBRARY.forEach((ex) => { if (!m.has(ex.name)) m.set(ex.name, ex); });
   return m;
 })();
 
@@ -655,17 +818,36 @@ function runGarminText(sess) {
      exercices de muscu, dont la clé est "Nom|index"). ---------- */
 const runLogKey = (type, i) => `__run:${type}|${i}`;
 
+/* ---------- Ordre des jours : dayMap associe un jour de la semaine à une
+     séance du programme. Vide = ordre d'origine. Tout le reste du code
+     parle en « sid » (identifiant de séance), jamais en jour, pour que
+     déplacer une séance emmène avec elle ses charges et ses réglages. ---------- */
+function sidFor(dow, state) {
+  const m = state && state.dayMap;
+  const v = m && m[dow];
+  return PROGRAM[v] ? v : dow;
+}
+function sessionFor(dow, state) {
+  return PROGRAM[sidFor(dow, state)];
+}
+// Jour de la semaine où se déroule une séance donnée (l'inverse de sidFor)
+function dowOfSid(sid, state) {
+  const m = (state && state.dayMap) || {};
+  const hit = WEEK_ORDER.find((d) => String(sidFor(d, state)) === String(sid));
+  return hit != null ? hit : sid;
+}
+
 /* ---------- Séance effective d'un jour : plan personnalisé s'il existe,
      sinon le programme d'origine. ---------- */
-function exercisesFor(dow, state) {
-  const p = PROGRAM[dow];
+function exercisesFor(sid, state) {
+  const p = PROGRAM[sid];
   if (!p || p.off || !p.exercises) return [];
-  const plan = state.dayPlans && state.dayPlans[dow];
+  const plan = state.dayPlans && state.dayPlans[sid];
   let list = p.exercises;
-  if (plan && plan.length) {
-    const out = [];
-    plan.forEach((name) => { const ex = CATALOG.get(name); if (ex) out.push(ex); });
-    if (out.length) list = out;
+  // Un plan vide est un choix : la séance a été vidée pour être recomposée.
+  if (Array.isArray(plan)) {
+    list = [];
+    plan.forEach((name) => { const ex = CATALOG.get(name); if (ex) list.push(ex); });
   }
   // Le programme de course couvre déjà le cardio : on enlève les finishers
   // qui feraient doublon avec la sortie du matin.
@@ -678,14 +860,22 @@ function exercisesFor(dow, state) {
      dans les mêmes conditions (fatigue, repos, ordre de la séance) : chaque
      jour garde donc ses propres charges, et ce que tu saisis un jeudi ne
      déplace que le repère du jeudi suivant. ---------- */
-function buildLastPerf(perfLog, beforeKey) {
+function buildLastPerf(perfLog, beforeKey, sid) {
   const out = {};
   const dow = dowOfKey(beforeKey);
+  const sameSession = (d) => {
+    const day = perfLog[d] || {};
+    // Les séances enregistrées portent leur identifiant : une séance
+    // déplacée dans la semaine emmène son historique avec elle.
+    if (day.__sid != null && sid != null) return String(day.__sid) === String(sid);
+    return dowOfKey(d) === dow;
+  };
   Object.keys(perfLog || {})
-    .filter((d) => d < beforeKey && dowOfKey(d) === dow)
+    .filter((d) => d < beforeKey && sameSession(d))
     .sort()                                   // croissant → la plus récente écrase
     .forEach((d) => {
       Object.keys(perfLog[d]).forEach((name) => {
+        if (name === '__sid') return;
         const sets = (perfLog[d][name] || []).map(normPerf);
         if (sets.some((s) => s.w != null || s.r != null)) out[name] = { date: d, sets };
       });
@@ -1237,6 +1427,7 @@ const DEFAULT_STATE = {
   setsOverrides: {},  // { "<jour>|Nom de l'exercice": nombre de séries }
   dayPlans: {},       // { dow: ["Nom exo", ...] } — séance réorganisée par l'utilisateur
   programVersion: PROGRAM_VERSION,
+  dayMap: {},         // { jour de la semaine : séance qui s'y déroule } — vide = ordre d'origine
   runStartCycle: 1,   // mésocycle de muscu où la course a démarré : la
                       // progression course part de zéro même si la muscu
                       // en est déjà à son troisième bloc
@@ -1289,9 +1480,12 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return { ...DEFAULT_STATE };
-    const parsed = JSON.parse(raw);
-    // Programme par défaut plus récent que la sauvegarde ? On repart de lui.
-    const fresh = (Number(parsed.programVersion) || 1) < PROGRAM_VERSION;
+    const stored = JSON.parse(raw);
+    const v = Number(stored.programVersion) || 1;
+    // v2 : le programme officiel a absorbé les réglages faits à la main.
+    // v3 : les exercices passent en français, l'historique est réécrit.
+    const parsed = v < 3 ? migrateNames(stored) : stored;
+    const resetPlans = v < 2;
     return {
       ...DEFAULT_STATE,
       ...parsed,
@@ -1300,10 +1494,9 @@ function loadState() {
       logs: parsed.logs || {},
       prs: Array.isArray(parsed.prs) ? parsed.prs : [],
       restOverrides: parsed.restOverrides || {},
-      // Programme mis à jour : on repart des séances officielles, qui
-      // contiennent désormais les réglages faits à la main.
-      setsOverrides: fresh ? {} : (parsed.setsOverrides || {}),
-      dayPlans: fresh ? {} : (parsed.dayPlans || {}),
+      setsOverrides: resetPlans ? {} : (parsed.setsOverrides || {}),
+      dayPlans: resetPlans ? {} : (parsed.dayPlans || {}),
+      dayMap: parsed.dayMap || {},
       programVersion: PROGRAM_VERSION,
       perfLog: parsed.perfLog || {},
       sessions: parsed.sessions || {},
@@ -1900,7 +2093,7 @@ function PRCelebration({ data, onClose }) {
    8. CARTE D'EXERCICE
    ============================================================ */
 
-function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, setFail, lowerRM, lastPerf, delay }) {
+function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, sid, state, dayKey, toggleSet, startTimer, openPR, setRestOverride, setSetsOverride, setPerf, setFail, lowerRM, lastPerf, delay }) {
   const [openWarmup, setOpenWarmup] = useState(false);
   const [editRest, setEditRest] = useState(false);
   const [editSets, setEditSets] = useState(false);
@@ -1912,9 +2105,8 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
   const accent = isForce ? lift.accent : (ex.kind === 'isolation' ? 'cyan' : ex.kind === 'sprint' ? 'lime' : 'viol');
   const a = ACC[accent];
 
-  // Nombre de séries : réglage perso de ce jour de la semaine, sinon programme
-  const dow = dowOfKey(dayKey);
-  const customSets = setsOverrideOf(ex, dow, state.setsOverrides);
+  // Nombre de séries : réglage perso de cette séance, sinon le programme
+  const customSets = setsOverrideOf(ex, sid, state.setsOverrides);
   const defaultSets = isForce ? forcePcts(ex, cyc).length : (ex.sets || 3);
   const setCount = customSets || defaultSets;
 
@@ -2026,7 +2218,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
               {Array.from({ length: MAX_SETS }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
-                  onClick={() => setSetsOverride(dow, ex.name, n)}
+                  onClick={() => setSetsOverride(sid, ex.name, n)}
                   className={`press flex-1 rounded-lg border py-2 font-display text-[12px] transition-all ${
                     setCount === n ? `${a.grad} border-transparent text-ink` : 'border-white/12 bg-white/[.04] text-white/55'
                   }`}
@@ -2037,7 +2229,7 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
               ))}
             </div>
             <button
-              onClick={() => setSetsOverride(dow, ex.name, null)}
+              onClick={() => setSetsOverride(sid, ex.name, null)}
               disabled={!customSets}
               className="press mt-2 w-full rounded-lg border border-white/12 bg-white/[.04] py-2 text-[11px] font-black text-white/60 disabled:opacity-30"
             >
@@ -2182,15 +2374,15 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
                   accent={accent}
                   perf={perfToday[i]}
                   last={validLast}
-                  onPerf={(field, value) => setPerf(dayKey, ex.name, i, field, value)}
+                  onPerf={(field, value) => setPerf(dayKey, sid, ex.name, i, field, value)}
                   onToggle={() => {
                     // Valider reprend la perf précédente pour tout champ laissé
                     // vide : la charge de la dernière fois est enregistrée telle
                     // quelle, champ par champ, jamais un trou dans l'historique.
                     const cur = normPerf(perfToday[i]);
                     if (!checked && validLast) {
-                      if (cur.w == null && validLast.w != null) setPerf(dayKey, ex.name, i, 'w', validLast.w);
-                      if (cur.r == null && validLast.r != null) setPerf(dayKey, ex.name, i, 'r', validLast.r);
+                      if (cur.w == null && validLast.w != null) setPerf(dayKey, sid, ex.name, i, 'w', validLast.w);
+                      if (cur.r == null && validLast.r != null) setPerf(dayKey, sid, ex.name, i, 'r', validLast.r);
                     }
                     toggle();
                   }}
@@ -2299,9 +2491,13 @@ function ExerciseCard({ ex, exIdx, ssPartner, ssLinked2, state, dayKey, toggleSe
 
 function ExercisePicker({ exclude, onPick, onClose, title }) {
   const [q, setQ] = useState('');
-  const list = CATALOG_LIST.filter(
-    (ex) => !exclude.includes(ex.name) && ex.name.toLowerCase().includes(q.toLowerCase())
-  );
+  const [grp, setGrp] = useState(null);
+  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const list = CATALOG_LIST.filter((ex) => {
+    if (exclude.includes(ex.name)) return false;
+    if (grp && (GROUP_OF[ex.name] || 'Autre') !== grp) return false;
+    return norm(ex.name).includes(norm(q));
+  });
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" onClick={onClose}>
@@ -2322,9 +2518,24 @@ function ExercisePicker({ exclude, onPick, onClose, title }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Rechercher…"
-          className="mb-3 w-full rounded-xl border border-white/12 bg-white/[.05] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan2/60"
+          placeholder="Rechercher une machine, un exercice…"
+          className="mb-2 w-full rounded-xl border border-white/12 bg-white/[.05] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan2/60"
         />
+
+        {/* Filtres par groupe musculaire */}
+        <div className="no-scrollbar -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {[null, ...MUSCLES].map((g) => (
+            <button
+              key={g || 'all'}
+              onClick={() => setGrp(g)}
+              className={`press shrink-0 rounded-xl border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide transition-all ${
+                grp === g ? 'border-cyan2 bg-cyan2/15 text-cyan2' : 'border-white/12 bg-white/[.04] text-white/45'
+              }`}
+            >
+              {g || 'Tout'}
+            </button>
+          ))}
+        </div>
 
         <div className="-mx-1 flex-1 space-y-1.5 overflow-y-auto px-1">
           {list.length === 0 && (
@@ -2343,8 +2554,9 @@ function ExercisePicker({ exclude, onPick, onClose, title }) {
                 <div className={`h-8 w-1 shrink-0 rounded-full ${isForce ? 'grad-pink' : 'bg-white/20'}`} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-extrabold text-white/85">{ex.name}</p>
-                  <p className="text-[10px] font-bold text-white/35">
-                    {isForce ? 'Mouvement principal · basé sur ton 1RM' : `${ex.sets}×${ex.reps} · repos ${fmtRest(restOf(ex))}`}
+                  <p className="truncate text-[10px] font-bold text-white/35">
+                    {GROUP_OF[ex.name] ? `${GROUP_OF[ex.name]} · ` : ''}
+                    {isForce ? 'Mouvement principal, basé sur ton 1RM' : `${ex.sets}×${ex.reps} · repos ${fmtRest(restOf(ex))}`}
                   </p>
                 </div>
               </button>
@@ -2356,12 +2568,12 @@ function ExercisePicker({ exclude, onPick, onClose, title }) {
   );
 }
 
-function SessionEditor({ dow, state, setDayPlan, onDone }) {
-  const base = PROGRAM[dow].exercises.map((e) => e.name);
-  const current = (state.dayPlans && state.dayPlans[dow]) || base;
+function SessionEditor({ sid, state, setDayPlan, onDone }) {
+  const base = (PROGRAM[sid].exercises || []).map((e) => e.name);
+  const current = (state.dayPlans && state.dayPlans[sid]) || base;
   const [picker, setPicker] = useState(null); // { mode:'add'|'replace', index }
 
-  const commit = (names) => setDayPlan(dow, names);
+  const commit = (names) => setDayPlan(sid, names);
   const exList = current.map((n) => CATALOG.get(n)).filter(Boolean);
 
   const move = (i, dir) => {
@@ -2418,7 +2630,7 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
                   <p className="text-[10px] font-bold text-white/35">
                     {isForce
                       ? 'Mouvement principal'
-                      : `${setsCountFor(ex, dow, state.setsOverrides, CYCLE[state.week])}×${ex.reps}`}
+                      : `${setsCountFor(ex, sid, state.setsOverrides, CYCLE[state.week])}×${ex.reps}`}
                   </p>
                 </div>
 
@@ -2440,15 +2652,25 @@ function SessionEditor({ dow, state, setDayPlan, onDone }) {
             ＋ Ajouter un exercice
           </GhostButton>
           {modified && (
-            <GhostButton accent="viol" onClick={() => setDayPlan(dow, null)}>
+            <GhostButton accent="viol" onClick={() => setDayPlan(sid, null)}>
               ↺ Séance d'origine
             </GhostButton>
           )}
         </div>
 
+        {current.length > 0 && (
+          <button
+            onClick={() => { if (confirm('Vider la séance pour la construire toi-même ?')) commit([]); }}
+            className="press mt-2 w-full rounded-2xl border border-dashed border-neon/35 py-2.5 text-[10px] font-black uppercase tracking-wider text-neon/70"
+          >
+            🗑️ Vider la séance et la créer moi-même
+          </button>
+        )}
+
         <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/30">
-          Tu ne peux choisir que des exercices déjà présents dans le programme. Pour en créer de nouveaux,
-          dis-le-moi et j'ajoute un formulaire de création.
+          Plus de 60 exercices et machines au choix, rangés par groupe musculaire. Vide la séance pour
+          la composer entièrement toi-même : elle est enregistrée automatiquement et garde les charges
+          de chaque exercice.
         </p>
       </Card>
 
@@ -2626,9 +2848,10 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
   // Jours doubles : avant 14 h on ouvre sur la course, après sur la muscu.
   const [slot, setSlot] = useState(() => (new Date().getHours() < 14 ? 'am' : 'pm'));
   const stripRef = useRef(null);
-  const session = PROGRAM[dow];
-  const exList = exercisesFor(dow, state);
-  const isCustomPlan = !!(state.dayPlans && state.dayPlans[dow]);
+  const sid = sidFor(dow, state);
+  const session = PROGRAM[sid];
+  const exList = exercisesFor(sid, state);
+  const isCustomPlan = !!(state.dayPlans && state.dayPlans[sid]);
 
   // Recentre le jour actif dans le carrousel (sinon DIM/SAM restent hors écran)
   useEffect(() => {
@@ -2643,7 +2866,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
   const sessionDate = isToday ? new Date() : dateOfWeekday(dow);
   const dKey = dateKey(sessionDate);
   const cyc = CYCLE[state.week];
-  const lastPerfMap = useMemo(() => buildLastPerf(state.perfLog, dKey), [state.perfLog, dKey]);
+  const lastPerfMap = useMemo(() => buildLastPerf(state.perfLog, dKey, sid), [state.perfLog, dKey, sid]);
 
   /* ---------- Course : créneau du matin des jours doubles, ou journée
        entière pour le mercredi sprint. ---------- */
@@ -2675,12 +2898,12 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
       let sets = [];
       if (ex.kind === 'force') {
         const rm = Number(state.profile[ex.lift] || 0);
-        sets = rm ? forcePcts(ex, cyc, setsOverrideOf(ex, dow, state.setsOverrides)).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
+        sets = rm ? forcePcts(ex, cyc, setsOverrideOf(ex, sid, state.setsOverrides)).map((p) => ({ w: round2_5((rm * p) / 100), r: cyc.reps })) : [];
       } else {
         // Le tonnage des accessoires vient des charges réellement saisies,
         // complétées par celles reprises de la dernière séance.
         const perf = (state.perfLog && state.perfLog[dKey] && state.perfLog[dKey][ex.name]) || [];
-        sets = Array.from({ length: setsCountFor(ex, dow, state.setsOverrides, cyc) }, (_, i) => {
+        sets = Array.from({ length: setsCountFor(ex, sid, state.setsOverrides, cyc) }, (_, i) => {
           const cur = normPerf(perf[i]);
           const prev = lastSetFor(lastPerfMap[ex.name], i);
           return {
@@ -2695,7 +2918,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
       });
     });
     return { total, done, tonnage };
-  }, [state, dKey, dow, session, cyc, exList, lastPerfMap, isRun]);
+  }, [state, dKey, sid, session, cyc, exList, lastPerfMap, isRun]);
 
   const a = ACC[session.accent];
   const allDone = stats.total > 0 && stats.done === stats.total;
@@ -2729,7 +2952,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
     const rows = [];
     exList.forEach((ex) => {
       if (ex.kind === 'force') return;         // charges pilotées par le cycle
-      const t = perfTotals((today[ex.name] || []).slice(0, setsCountFor(ex, dow, state.setsOverrides, cyc)));
+      const t = perfTotals((today[ex.name] || []).slice(0, setsCountFor(ex, sid, state.setsOverrides, cyc)));
       const prevRef = lastPerfMap[ex.name];
       const p = prevRef ? perfTotals(prevRef.sets) : null;
       const useVol = t.vol > 0 || (p && p.vol > 0);
@@ -2748,7 +2971,7 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
     const order = { up: 0, down: 1, same: 2, new: 3 };
     rows.sort((x, y) => order[x.dir] - order[y.dir] || y.tv - x.tv);
     return rows;
-  }, [state.perfLog, state.setsOverrides, dKey, dow, cyc, exList, lastPerfMap, session]);
+  }, [state.perfLog, state.setsOverrides, dKey, sid, cyc, exList, lastPerfMap, session]);
 
   /* ---------- Séance loupée ---------- */
   const isMissed = !!(state.missed && state.missed[dKey]);
@@ -3094,16 +3317,17 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
           </button>
 
           {editing && (
-            <SessionEditor dow={dow} state={state} setDayPlan={setDayPlan} onDone={() => setEditing(false)} />
+            <SessionEditor sid={sid} state={state} setDayPlan={setDayPlan} onDone={() => setEditing(false)} />
           )}
 
           {exList.map((ex, i) => (
             <ExerciseCard
-              key={`${dow}-${ex.name}`}
+              key={`${sid}-${ex.name}`}
               ex={ex}
               exIdx={i}
               ssPartner={ssPartnerAt(exList, i)}
               ssLinked2={ssLinked(exList, i)}
+              sid={sid}
               state={state}
               dayKey={dKey}
               toggleSet={toggleSet}
@@ -3135,12 +3359,15 @@ function TodayView({ state, setState, toggleSet, setSession, setMissed, setFail,
    10. VUE — PROGRAMME DE LA SEMAINE
    ============================================================ */
 
-function ProgramView({ state }) {
+function ProgramView({ state, swapDays, resetDays }) {
   const [open, setOpen] = useState(new Date().getDay());
+  const [arrange, setArrange] = useState(false);
+  const [picked, setPicked] = useState(null);   // 1er jour sélectionné pour l'échange
   const cyc = CYCLE[state.week];
   const realDow = new Date().getDay();
   const runOn = state.settings.run !== false;
   const paces = runPaces(state.profile.run10k);
+  const custom = Object.keys(state.dayMap || {}).length > 0;
 
   return (
     <div className="space-y-4">
@@ -3171,9 +3398,84 @@ function ProgramView({ state }) {
         </div>
       </Card>
 
+      {/* Ordre des jours */}
+      <button
+        onClick={() => { setArrange((v) => !v); setPicked(null); }}
+        className={`press flex w-full items-center justify-center gap-2 rounded-2xl border py-3 font-display text-[11px] uppercase tracking-wider ${
+          arrange || custom ? 'border-cyan2/40 bg-cyan2/[.08] text-cyan2' : 'border-white/15 bg-white/[.04] text-white/50'
+        }`}
+      >
+        🔀 {arrange ? 'Fermer' : 'Changer l\'ordre des jours'}
+        {custom && !arrange && <span className="text-[9px] text-cyan2/70">· modifié</span>}
+      </button>
+
+      {arrange && (
+        <Card accent="cyan" className="rise p-4">
+          <p className="font-display text-sm uppercase text-white">🔀 Ordre de la semaine</p>
+          <p className="mt-0.5 text-[11px] font-semibold leading-relaxed text-white/45">
+            {picked == null
+              ? 'Touche le jour à déplacer, puis le jour avec lequel l\'échanger.'
+              : 'Touche maintenant le jour avec lequel échanger.'}
+          </p>
+
+          <div className="mt-3 space-y-1.5">
+            {WEEK_ORDER.map((d) => {
+              const ses = sessionFor(d, state);
+              const sel = picked === d;
+              const dayOffHere = ses.off || (ses.offWhenNoRun && !runOn);
+              const acc = ACC[ses.accent];
+              return (
+                <button
+                  key={d}
+                  onClick={() => {
+                    if (picked == null) { setPicked(d); return; }
+                    if (picked === d) { setPicked(null); return; }
+                    swapDays(picked, d);
+                    setPicked(null);
+                    vibrate(35);
+                  }}
+                  className={`press flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
+                    sel ? 'border-cyan2 bg-cyan2/[.14]' : 'border-white/10 bg-white/[.03]'
+                  }`}
+                >
+                  <span className="w-11 shrink-0 font-display text-[11px] uppercase text-white/45">
+                    {PROGRAM[d].day.slice(0, 3)}
+                  </span>
+                  <div className={`h-8 w-1 shrink-0 rounded-full ${dayOffHere ? 'bg-white/15' : acc.grad}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[12px] font-extrabold ${dayOffHere ? 'text-white/40' : 'text-white/85'}`}>
+                      {dayOffHere ? 'Repos' : ses.title}
+                    </p>
+                    <p className="truncate text-[10px] font-bold text-white/35">
+                      {dayOffHere ? 'Récupération' : ses.focus}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 font-display text-base ${sel ? 'text-cyan2' : 'text-white/20'}`}>
+                    {sel ? '⇅' : '↔'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {custom && (
+            <div className="mt-3">
+              <GhostButton accent="viol" className="w-full" onClick={() => { resetDays(); setPicked(null); }}>
+                ↺ Remettre l'ordre d'origine
+              </GhostButton>
+            </div>
+          )}
+          <p className="mt-2 text-[10px] font-semibold leading-relaxed text-white/30">
+            Une séance emporte tout avec elle : ses exercices, ses charges, ses temps de repos et son
+            historique. Garde deux jours de repos et évite de coller la séance de jambes la veille d'une
+            sortie de course.
+          </p>
+        </Card>
+      )}
+
       {/* Les 7 jours */}
       {WEEK_ORDER.map((d, idx) => {
-        const p = PROGRAM[d];
+        const p = sessionFor(d, state);
         const pOff = p.off || (p.offWhenNoRun && !runOn);
         const a = ACC[p.accent];
         const isOpen = open === d;
@@ -3217,12 +3519,12 @@ function ProgramView({ state }) {
                     </div>
                   );
                 })()}
-                {runOn && p.run ? null : exercisesFor(d, state).map((ex, i) => {
+                {runOn && p.run ? null : exercisesFor(sidFor(d, state), state).map((ex, i) => {
                   const isForce = ex.kind === 'force';
                   const rm = isForce ? Number(state.profile[ex.lift] || 0) : 0;
                   const acc2 = isForce ? ACC[LIFTS.find((l) => l.id === ex.lift).accent] : null;
-                  const pcts = isForce ? forcePcts(ex, cyc, setsOverrideOf(ex, d, state.setsOverrides)) : null;
-                  const dayList = exercisesFor(d, state);
+                  const pcts = isForce ? forcePcts(ex, cyc, setsOverrideOf(ex, sidFor(d, state), state.setsOverrides)) : null;
+                  const dayList = exercisesFor(sidFor(d, state), state);
                   const ssNext = ssPartnerAt(dayList, i);
                   const linked = ssLinked(dayList, i);
                   const restSec = ssNext ? 0 : restFor(ex, state.restOverrides, isForce ? cyc.rest : null);
@@ -3236,7 +3538,7 @@ function ProgramView({ state }) {
                         <p className="text-[10px] font-bold text-white/35">
                           {isForce
                             ? `${pcts.length}×${cyc.reps} · ${cyc.tag.split(' @ ')[1]}`
-                            : `${setsCountFor(ex, d, state.setsOverrides, cyc)}×${ex.reps}`}
+                            : `${setsCountFor(ex, sidFor(d, state), state.setsOverrides, cyc)}×${ex.reps}`}
                           {ssNext ? ' · enchaîné' : restSec ? ` · repos ${fmtRest(restSec)}` : ''}
                         </p>
                       </div>
@@ -4311,6 +4613,22 @@ function App() {
     });
   }, []);
 
+  /* ---------- Ordre des jours : on échange les deux séances. La table ne
+       contient que les jours réellement déplacés ; vide = ordre d'origine. ---------- */
+  const swapDays = useCallback((a, b) => {
+    setState((s) => {
+      const map = { ...(s.dayMap || {}) };
+      const cur = (d) => (PROGRAM[map[d]] ? map[d] : d);
+      const sa = cur(a), sb = cur(b);
+      map[a] = sb;
+      map[b] = sa;
+      WEEK_ORDER.forEach((d) => { if (String(map[d]) === String(d)) delete map[d]; });
+      return { ...s, dayMap: map };
+    });
+  }, []);
+
+  const resetDays = useCallback(() => setState((s) => ({ ...s, dayMap: {} })), []);
+
   // Séance déclarée loupée (ou annulation du marquage)
   const setMissed = useCallback((dayKey, val) => {
     setState((s) => {
@@ -4410,10 +4728,11 @@ function App() {
   }, []);
 
   // Charge & reps réalisées sur une série d'hypertrophie
-  const setPerf = useCallback((dayKey, exName, setIdx, field, value) => {
+  const setPerf = useCallback((dayKey, sid, exName, setIdx, field, value) => {
     setState((s) => {
       const log = { ...(s.perfLog || {}) };
       const day = { ...(log[dayKey] || {}) };
+      if (sid != null) day.__sid = sid;      // quelle séance a été faite ce jour-là
       const sets = (day[exName] || []).slice();
       while (sets.length <= setIdx) sets.push({ w: null, r: null });
       const clean = typeof value === 'number' && isFinite(value) ? value : null;
@@ -4499,7 +4818,7 @@ function App() {
           goProfile={() => { setTab('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
-      {tab === 'program' && <ProgramView state={state} />}
+      {tab === 'program' && <ProgramView state={state} swapDays={swapDays} resetDays={resetDays} />}
       {tab === 'nutrition' && <NutritionView state={state} setState={setState} />}
       {tab === 'profile' && (
         <ProfileView
